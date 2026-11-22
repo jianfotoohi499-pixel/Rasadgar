@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "رصد گر ژیان",
+    "slug": "rasadgar-zhian",
+    "version": "1.2.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "android": {
+      "package": "ir.zhian.rasadgar",
+      "versionCode": 3
+    },
+    "extra": {
+      "description": "داشبورد شخصی بازار، دارایی، آب‌وهوا و تقویم"
+    }
+  }
+}
