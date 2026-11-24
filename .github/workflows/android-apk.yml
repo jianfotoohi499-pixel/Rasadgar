@@ -1,4 +1,4 @@
-name: Build Rasadgar Android APK
+name: Build Rasadgar Android Release APK
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build-android:
-    name: Build debug APK
+    name: Build release APK with bundled JavaScript
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -35,16 +35,16 @@ jobs:
       - name: Generate Android project
         run: npx expo prebuild --platform android --non-interactive
 
-      - name: Build APK
+      - name: Build release APK
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleRelease --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: rasadgar-zhian-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: rasadgar-zhian-release-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
