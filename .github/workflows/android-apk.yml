@@ -32,6 +32,12 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Render custom launcher icon
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
+          convert -background none assets/rasadgar-icon.svg -resize 1024x1024 assets/rasadgar-icon.png
+
       - name: Generate Android project
         run: npx expo prebuild --platform android --non-interactive
 
