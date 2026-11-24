@@ -163,8 +163,9 @@ export default function App(){
        let nextAccounts=[...(d.accounts||[])];
        const added=fresh.map(m=>{
          const account=nextAccounts.find(a=>m.last4&&a.last4===m.last4)||(nextAccounts.length===1?nextAccounts[0]:null);
-         if(account)nextAccounts=nextAccounts.map(a=>a.id===account.id?{...a,balance:Math.max(0,a.balance+(m.type==='واریز'?Number(m.amount):-Number(m.amount)))}:a);
-         return {id:String(m.id),accountId:account?.id??null,amount:Number(m.amount),type:m.type==='واریز'?'واریز':'برداشت',category:'تراکنش پیامکی',date:new Date(Number(m.timestamp)||Date.now()).toISOString().slice(0,10),source:'پیامک خودکار',sender:String(m.sender||'')};
+         const source=String(m.source||'پیامک خودکار');
+         if(account&&source!=='پیامک قدیمی')nextAccounts=nextAccounts.map(a=>a.id===account.id?{...a,balance:Math.max(0,a.balance+(m.type==='واریز'?Number(m.amount):-Number(m.amount)))}:a);
+         return {id:String(m.id),accountId:account?.id??null,amount:Number(m.amount),type:m.type==='واریز'?'واریز':'برداشت',category:'تراکنش پیامکی',date:new Date(Number(m.timestamp)||Date.now()).toISOString().slice(0,10),source,sender:String(m.sender||'')};
        });
        return {...d,accounts:nextAccounts,transactions:[...(d.transactions||[]),...added]};
      });
