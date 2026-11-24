@@ -12,6 +12,8 @@ const BLUE='#1556a3', RED='#c62828', GREEN='#16834a', YELLOW='#e6b800', INK='#17
 const STORE='zhian.v1';
 const today=(date=new Date())=>new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dateStyle:'full',timeZone:'Asia/Tehran'}).format(date);
 const rial=n=>Number(n||0).toLocaleString('fa-IR')+' ریال';
+const normalizeNumber=value=>{const digits=String(value??'').replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));const cleaned=digits.replace(/[٬،,\s]/g,'').replace(/٫/g,'.');return Number(cleaned);};
+const assetTypes=['ملک','خودرو','طلا','ارز','سپرده بانکی','سهام','سایر'];
 const initial={city:'تهران',prices:{'دلار آزاد':'','طلای ۱۸ عیار (گرم)':'','ربع سکه':'','نیم سکه':'','تمام سکه':'','نفت برنت (ریال/بشکه)':'','نفت WTI (ریال/بشکه)':''},assets:[],history:[]};
 
 function Card({title,children,color=BLUE}){return <View style={s.card}><Text style={[s.cardTitle,{color}]}>{title}</Text>{children}</View>}
@@ -28,7 +30,7 @@ export default function App(){
  const [data,setData]=useState(initial),[weather,setWeather]=useState(null),[busy,setBusy]=useState(false);\n const [now,setNow]=useState(()=>new Date()),[storageLoaded,setStorageLoaded]=useState(false);
  const [marketBusy,setMarketBusy]=useState(false),[marketInfo,setMarketInfo]=useState(null);
  const [cityQuery,setCityQuery]=useState(''),[showMenu,setShowMenu]=useState(false),[tab,setTab]=useState('خانه');
- const [assetName,setAssetName]=useState(''),[assetValue,setAssetValue]=useState('');
+ const [assetName,setAssetName]=useState(''),[assetValue,setAssetValue]=useState(''),[assetType,setAssetType]=useState('ملک');
  useEffect(()=>{AsyncStorage.getItem(STORE).then(v=>v&&setData({...initial,...JSON.parse(v)})).catch(()=>{});},[]);
  useEffect(()=>{AsyncStorage.setItem(STORE,JSON.stringify(data)).catch(()=>{});},[data]);
  useEffect(()=>{refreshMarket();const timer=setInterval(refreshMarket,30*60*1000);return ()=>clearInterval(timer);},[]);
@@ -103,8 +105,13 @@ export default function App(){
    setData(d=>({...d,history:[...d.history,row]})); Alert.alert('ذخیره شد','اطلاعات امروز در حافظه گوشی ثبت شد.');
  }
  function addAsset(){
-   if(!assetName.trim()||!Number(assetValue)){Alert.alert('اطلاعات ناقص','نام و ارزش ریالی دارایی را وارد کنید.');return;}
-   setData(d=>({...d,assets:[...d.assets,{id:Date.now(),name:assetName,value:Number(assetValue)}]}));setAssetName('');setAssetValue('');
+   const numericValue=normalizeNumber(assetValue);
+   if(!assetName.trim()||!Number.isFinite(numericValue)||numericValue<=0){Alert.alert('اطلاعات ناقص','نام دارایی و ارزش ریالی معتبر و بزرگ‌تر از صفر وارد کنید. اعداد فارسی و انگلیسی پذیرفته می‌شوند.');return;}
+   setData(d=>({...d,assets:[...d.assets,{id:Date.now(),type:assetType,name:assetName.trim(),value:numericValue}]}));
+   setAssetName('');setAssetValue('');
+ }
+ function removeAsset(id){
+   Alert.alert('حذف دارایی','این دارایی از فهرست حذف شود؟',[{text:'انصراف',style:'cancel'},{text:'حذف',style:'destructive',onPress:()=>setData(d=>({...d,assets:d.assets.filter(a=>a.id!==id)}))}]);
  }
  async function exportBackup(){
    try { const payload=JSON.stringify(data,null,2); const uri=FileSystem.documentDirectory+'rasadgar-zhian-backup.json';
@@ -172,10 +179,19 @@ export default function App(){
    <Pressable style={s.primary} onPress={()=>Alert.alert('ثبت شد','قیمت‌ها در گوشی ذخیره شدند.')}><Text style={s.primaryText}>ذخیره قیمت‌ها</Text></Pressable>
   </Card>}
  {tab==='دارایی‌های من'&&<Card title="دارایی‌های شخصی" color={GREEN}>
-   <Field label="نام دارایی (ملک، خودرو و ...)" value={assetName} onChange={setAssetName}/>
-   <Field label="ارزش تخمینی به ریال" value={assetValue} onChange={setAssetValue}/>
+   <Text style={s.label}>نوع دارایی را انتخاب کنید</Text>
+   <View style={{flexDirection:'row',flexWrap:'wrap',gap:7,marginVertical:9}}>
+    {assetTypes.map(t=><Pressable key={t} onPress={()=>setAssetType(t)} style={{paddingVertical:9,paddingHorizontal:12,borderRadius:9,backgroundColor:assetType===t?GREEN:'#edf1ed',borderWidth:1,borderColor:assetType===t?GREEN:'#ccd8ce'}}><Text style={{color:assetType===t?'#fff':INK,fontWeight:'700'}}>{t}</Text></Pressable>)}
+   </View>
+   <Field label={assetType==='سایر'?'عنوان دارایی':'نام یا شرح دارایی'} value={assetName} onChange={setAssetName} placeholder={assetType==='سایر'?'مثلاً تجهیزات، لوازم یا سایر موارد':'نام یا توضیح دارایی را وارد کنید'}/>
+   <Field label="ارزش تخمینی به ریال (اعداد فارسی یا انگلیسی)" value={assetValue} onChange={setAssetValue} placeholder="مثلاً ۱۲۵۰۰۰۰۰۰۰"/>
    <Pressable style={s.primary} onPress={addAsset}><Text style={s.primaryText}>افزودن دارایی</Text></Pressable>
-   {data.assets.map(a=><View key={a.id} style={s.priceRow}><Text style={s.label}>{a.name}</Text><Text style={s.value}>{rial(a.value)}</Text></View>)}
+   {data.assets.length===0&&<Text style={s.muted}>هنوز دارایی ثبت نشده است. نوع دارایی، نام و ارزش ریالی را وارد و «افزودن دارایی» را انتخاب کنید.</Text>}
+   {data.assets.map(a=><View key={a.id} style={s.priceRow}>
+    <View style={{flex:1}}><Text style={s.label}>{a.name}</Text><Text style={s.muted}>{a.type||'سایر'}</Text></View>
+    <Text style={s.value}>{rial(a.value)}</Text>
+    <Pressable onPress={()=>removeAsset(a.id)} style={{padding:8}}><Text style={{color:RED,fontWeight:'bold'}}>حذف</Text></Pressable>
+   </View>)}
    <Text style={s.total}>جمع: {rial(data.assets.reduce((a,x)=>a+x.value,0))}</Text>
    <Text style={s.muted}>ارزش دلاری = ارزش ریالی ÷ نرخ دلار ریالی. ارزش طلایی = ارزش ریالی ÷ قیمت یک گرم طلا. این دو مقدار پس از ثبت نرخ‌ها قابل محاسبه‌اند.</Text>
    {data.assets.map(a=><Text key={'calc'+a.id} style={s.muted}>{a.name}: {data.prices['دلار آزاد']?`$${(a.value/Number(data.prices['دلار آزاد'])).toFixed(2)}`:'—'} | {data.prices['طلای ۱۸ عیار (گرم)']?`${(a.value/Number(data.prices['طلای ۱۸ عیار (گرم)'])).toFixed(2)} گرم طلا`:'—'}</Text>)}
