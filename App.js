@@ -185,7 +185,8 @@ export default function App(){
  <ScrollView contentContainerStyle={s.body}>
  {tab==='خانه'&&<>
   <Card title="آب‌وهوا و کیفیت هوا" color={BLUE}>
-   <View style={s.row}><TextInput value={cityQuery} onChangeText={setCityQuery} placeholder={`شهر (پیش‌فرض: ${data.city})`} style={[s.input,{flex:1}]}/><Pressable style={s.smallBtn} onPress={()=>loadWeather(cityQuery||data.city)}><Text style={s.btnText}>جستجو</Text></Pressable></View>
+   <View style={s.row}><TextInput value={cityQuery} onChangeText={v=>{setCityQuery(v);setCityResults([]);}} placeholder={`نام شهر (فعلی: ${data.city})`} style={[s.input,{flex:1}]}/><Pressable style={s.smallBtn} onPress={searchCities}><Text style={s.btnText}>یافتن شهر</Text></Pressable></View>
+   {cityResults.map(g=><Pressable key={g.id} onPress={()=>loadWeather(g.name,g)} style={[s.outline,{marginTop:6}]}><Text style={s.outlineText}>{g.name}{g.admin1?', '+g.admin1:''}{g.country?', '+g.country:''}</Text></Pressable>)}
    {weather?<View style={s.tiles}>
     <Text style={s.metric}>دمای فعلی: {weather.temp??'—'} درجه سانتی‌گراد</Text>
     <Text style={s.label}>وضعیت امروز</Text><Text style={s.muted}>{weather.today?.date||'امروز'}</Text><Text style={s.muted}>بیشینه دما: {weather.today?.max??'—'}° | کمینه دما: {weather.today?.min??'—'}° | احتمال بارش: {weather.today?.rain??'—'}٪</Text>
