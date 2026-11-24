@@ -55,7 +55,11 @@ export default function App(){
      const response=await fetch(url,{headers:{'Cache-Control':'no-cache'}});
      if(!response.ok) throw new Error('پاسخ منبع قیمت دریافت نشد ('+response.status+')');
      const payload=await response.json();
-     const rows=Array.isArray(payload.data)?payload.data:(Array.isArray(payload.items)?payload.items:[]);
+     // قالب واقعی منبع: data.categories یک شیء از آرایه‌های دسته‌بندی است.
+     const categoryRows=payload.data?.categories;
+     const rows=Array.isArray(payload.data)?payload.data:
+       (categoryRows&&typeof categoryRows==='object'?Object.values(categoryRows).flat():
+       (Array.isArray(payload.items)?payload.items:[]));
      if(!rows.length) throw new Error('ساختار داده‌های منبع قابل شناسایی نیست.');
      const find=(symbol)=>rows.find(x=>x.symbol===symbol);
      const asRial=(item)=>{
@@ -73,19 +77,23 @@ export default function App(){
        ['نیم سکه','COIN_HALF_IRR'],
        ['تمام سکه','COIN_EMAMI_IRR']
      ];
-     for(const [label,symbol] of map){const value=asRial(find(symbol));if(value!==null)updates[label]=String(Math.round(value));}
-     const usd=asRial(find('USD_IRR_FREE'));
-     // نفت جهانی فقط در صورت وجود نماد صریح برنت/WTI در فهرست منبع تبدیل می‌شود.
-     for(const [label,pattern] of [['نفت برنت (ریال/بشکه)',/BRENT/i],['نفت WTI (ریال/بشکه)',/WTI/i]]){
-       const item=rows.find(x=>pattern.test(String(x.symbol||'')) && String(x.currency||'').toUpperCase()==='USD');
-       if(item && usd!==null && Number(item.price)>0) updates[label]=String(Math.round(Number(item.price)*usd));
+     const selected=[];
+     for(const [label,symbol] of map){
+       const item=find(symbol),value=asRial(item);
+       if(value!==null){updates[label]=String(Math.round(value));selected.push(item);}
      }
+     const usd=asRial(find('USD_IRR_FREE'));
+     const brent=rows.find(x=>x.symbol==='BRENT_USD' && String(x.currency||'').toUpperCase()==='USD');
+     if(brent && usd!==null && Number(brent.price)>0){updates['نفت برنت (ریال/بشکه)']=String(Math.round(Number(brent.price)*usd));selected.push(brent);}
+     // اگر نماد WTI در منبع موجود نباشد، مقدار قبلی دست‌نخورده می‌ماند.
+     const wti=rows.find(x=>/^(WTI|WTI_USD|CRUDE_WTI)$/i.test(String(x.symbol||'')) && String(x.currency||'').toUpperCase()==='USD');
+     if(wti && usd!==null && Number(wti.price)>0){updates['نفت WTI (ریال/بشکه)']=String(Math.round(Number(wti.price)*usd));selected.push(wti);}
      if(!Object.keys(updates).length) throw new Error('قیمت‌های موردنیاز در پاسخ منبع موجود نبود.');
      setData(d=>({...d,prices:{...d.prices,...updates}}));
-     const published=payload.meta?.published_at||payload.generated_at||new Date().toISOString();
+     const published=payload.data?.generated_at||payload.generated_at||new Date().toISOString();
      const stamp=new Date(published);
      const time=Number.isNaN(stamp.getTime())?String(published):stamp.toLocaleString('fa-IR');
-     setMarketInfo({time,source:'Iran Market Data',count:Object.keys(updates).length,url,stale:Object.values(rows).some(x=>x.stale===true)});
+     setMarketInfo({time,source:'Iran Market Data',count:Object.keys(updates).length,url,stale:selected.some(x=>x.stale===true)});
      Alert.alert('به‌روزرسانی قیمت‌ها',`${Object.keys(updates).length} نرخ از منبع رایگان دریافت شد. زمان انتشار: ${time}`);
    } catch(e){Alert.alert('خطا در دریافت قیمت‌ها',e.message||'اتصال اینترنت را بررسی کنید.');}
    finally{setMarketBusy(false);}
