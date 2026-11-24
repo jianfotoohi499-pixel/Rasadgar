@@ -165,7 +165,12 @@ export default function App(){
  {tab==='خانه'&&<>
   <Card title="آب‌وهوا و کیفیت هوا" color={BLUE}>
    <View style={s.row}><TextInput value={cityQuery} onChangeText={setCityQuery} placeholder={`شهر (پیش‌فرض: ${data.city})`} style={[s.input,{flex:1}]}/><Pressable style={s.smallBtn} onPress={()=>loadWeather(cityQuery||data.city)}><Text style={s.btnText}>جستجو</Text></Pressable></View>
-   {weather?<View style={s.tiles}><Text style={s.metric}>🌡 {weather.temp}°</Text><Text style={s.metric}>AQI: {weather.aqi??'—'}</Text><Text style={s.metric}>PM2.5: {weather.pm25??'—'}</Text><Text style={s.muted}>حس‌دمای {weather.feels}° | رطوبت {weather.humidity}% | باد {weather.wind} km/h</Text><Text style={s.muted}>به‌روزرسانی: {weather.updated}</Text></View>:<Text style={s.muted}>برای دریافت وضعیت شهر، جستجو را بزنید.</Text>}
+   {weather?<View style={s.tiles}>
+    <Text style={s.metric}>دمای فعلی: {weather.temp??'—'} درجه سانتی‌گراد</Text>
+    <Text style={s.label}>وضعیت امروز</Text><Text style={s.muted}>{weather.today?.date||'امروز'}</Text><Text style={s.muted}>بیشینه دما: {weather.today?.max??'—'}° | کمینه دما: {weather.today?.min??'—'}° | احتمال بارش: {weather.today?.rain??'—'}٪</Text>
+    <Text style={s.label}>پیش‌بینی فردا</Text><Text style={s.muted}>{weather.tomorrow?.date||'فردا'}</Text><Text style={s.muted}>بیشینه دما: {weather.tomorrow?.max??'—'}° | کمینه دما: {weather.tomorrow?.min??'—'}° | احتمال بارش: {weather.tomorrow?.rain??'—'}٪</Text>
+    <Text style={s.label}>شرایط فعلی و کیفیت هوا</Text><Text style={s.muted}>دمای احساسی: {weather.feels??'—'}° سانتی‌گراد</Text><Text style={s.muted}>رطوبت نسبی: {weather.humidity??'—'}٪</Text><Text style={s.muted}>سرعت باد: {weather.wind??'—'} کیلومتر بر ساعت</Text><Text style={s.muted}>شاخص کیفیت هوا (AQI): {weather.aqi??'—'}</Text><Text style={s.muted}>ذرات معلق PM2.5: {weather.pm25??'—'} میکروگرم/مترمکعب</Text><Text style={s.muted}>ذرات معلق PM10: {weather.pm10??'—'} میکروگرم/مترمکعب</Text><Text style={s.muted}>آخرین دریافت: {weather.updated}</Text>
+   </View>:<Text style={s.muted}>برای دریافت وضعیت شهر، نام شهر را جست‌وجو و از فهرست نتایج انتخاب کنید.</Text>}
    {busy&&<ActivityIndicator color={BLUE}/>}
    <Pressable onPress={()=>loadWeather()} style={s.outline}><Text style={s.outlineText}>به‌روزرسانی شهر فعلی</Text></Pressable>
   </Card>
