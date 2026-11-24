@@ -4,10 +4,6 @@ apply plugin: 'expo-module-gradle-plugin'
 group = 'ir.zhian.rasadgar'
 version = '1.0.0'
 
-expoModule {
-  canBePublished false
-}
-
 android {
   namespace 'expo.modules.transactionsms'
   defaultConfig {
