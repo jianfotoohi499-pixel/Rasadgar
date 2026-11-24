@@ -33,6 +33,7 @@ export default function App(){
  const [assetName,setAssetName]=useState(''),[assetValue,setAssetValue]=useState(''),[assetType,setAssetType]=useState('ملک');
  const [loanName,setLoanName]=useState(''),[loanAmount,setLoanAmount]=useState(''),[installmentAmount,setInstallmentAmount]=useState(''),[installmentCount,setInstallmentCount]=useState(''),[firstDueDate,setFirstDueDate]=useState('');
  const [accountBank,setAccountBank]=useState(''),[accountName,setAccountName]=useState(''),[accountLast4,setAccountLast4]=useState(''),[accountBalance,setAccountBalance]=useState('');
+ const [editRecord,setEditRecord]=useState(null),[editName,setEditName]=useState(''),[editType,setEditType]=useState(''),[editValue,setEditValue]=useState(''),[editExtra,setEditExtra]=useState('');
  const [txAccount,setTxAccount]=useState(''),[txAmount,setTxAmount]=useState(''),[txType,setTxType]=useState('برداشت'),[txCategory,setTxCategory]=useState('خرید'),[txDate,setTxDate]=useState(new Date().toISOString().slice(0,10)),[smsText,setSmsText]=useState('');
  useEffect(()=>{AsyncStorage.getItem(STORE).then(v=>v&&setData({...initial,...JSON.parse(v)})).catch(()=>{});},[]);
  useEffect(()=>{AsyncStorage.setItem(STORE,JSON.stringify(data)).catch(()=>{});},[data]);
@@ -128,6 +129,29 @@ export default function App(){
    const id=Date.now();setData(d=>({...d,accounts:[...(d.accounts||[]),{id,bank:accountBank.trim(),name:accountName.trim(),last4:accountLast4.trim()?last4.padStart(4,'0'):'',balance}]}));
    setAccountBank('');setAccountName('');setAccountLast4('');setAccountBalance('');setTxAccount(String(id));
  }
+ function startEdit(kind,item){
+   setEditRecord({kind,id:item.id,original:item});
+   setEditName(kind==='asset'?item.name:kind==='account'?item.name:kind==='transaction'?item.category:item.name||'');
+   setEditType(kind==='asset'?item.type:kind==='transaction'?item.type:'');
+   setEditValue(String(kind==='asset'?item.value:kind==='account'?item.balance:item.amount));
+   setEditExtra(kind==='account'?item.bank:kind==='transaction'?item.date:item.last4||'');
+ }
+ function cancelEdit(){setEditRecord(null);setEditName('');setEditType('');setEditValue('');setEditExtra('');}
+ function saveEdit(){
+   if(!editRecord)return;
+   const value=normalizeNumber(editValue),{kind,id,original}=editRecord;
+   if(!Number.isFinite(value)||value<0||!editName.trim()){Alert.alert('اطلاعات نامعتبر','عنوان و مبلغ معتبر وارد کنید.');return;}
+   setData(d=>{
+     if(kind==='asset')return {...d,assets:d.assets.map(x=>x.id===id?{...x,name:editName.trim(),type:editType,value}:x)};
+     if(kind==='account')return {...d,accounts:(d.accounts||[]).map(x=>x.id===id?{...x,name:editName.trim(),bank:editExtra.trim(),balance:value,last4:x.last4}:x)};
+     if(kind==='transaction'){
+       const delta=(editType==='واریز'?value:-value)-(original.type==='واریز'?original.amount:-original.amount);
+       return {...d,transactions:(d.transactions||[]).map(x=>x.id===id?{...x,amount:value,type:editType,category:editName.trim(),date:editExtra.trim()}:x),accounts:(d.accounts||[]).map(a=>a.id===original.accountId?{...a,balance:Math.max(0,a.balance+delta)}:a)};
+     }
+     return d;
+   });
+   cancelEdit();Alert.alert('ذخیره شد','تغییرات در گوشی ثبت شد.');
+ }
  function addTransaction(){
    const amount=normalizeNumber(txAmount);
    if(!txAccount||!Number.isFinite(amount)||amount<=0||!txDate.trim()){Alert.alert('اطلاعات تراکنش','حساب، مبلغ و تاریخ معتبر را انتخاب کنید.');return;}
@@ -207,14 +231,15 @@ export default function App(){
  const unpaidInstallments=loans.flatMap(l=>l.installments||[]).filter(i=>!i.paid);
  const remainingDebt=unpaidInstallments.reduce((sum,i)=>sum+(Number(i.amount)||0),0);
  const netAssets=totalAssets-remainingDebt;
- const menu=['خانه','قیمت‌ها','دارایی‌های من','حساب‌ها و تراکنش‌ها','وام‌ها و اقساط','گزارش مالی','روند تاریخی','راهنما'];
+ const menu=[{name:'خانه',icon:'🏠',desc:'نمای کلی و وضعیت امروز'},{name:'قیمت‌ها',icon:'📈',desc:'دلار، طلا، سکه و نفت'},{name:'دارایی‌های من',icon:'💎',desc:'ثبت و ویرایش اموال'},{name:'حساب‌ها و تراکنش‌ها',icon:'🏦',desc:'موجودی و گردش حساب'},{name:'وام‌ها و اقساط',icon:'🗓️',desc:'سررسیدها و پرداخت‌ها'},{name:'گزارش مالی',icon:'📊',desc:'جمع دارایی و بدهی'},{name:'روند تاریخی',icon:'📉',desc:'نمودار و سوابق'},{name:'راهنما',icon:'🧭',desc:'آموزش و تنظیمات'}];
  return <SafeAreaView style={s.safe}><StatusBar style="dark"/><View style={s.header}>
    <Pressable onPress={()=>setShowMenu(!showMenu)} style={s.menuBtn}><Text style={s.menuText}>☰</Text></Pressable>
    <View style={s.headerMark}><Text style={s.headerEye}>◉</Text></View><View style={{flex:1}}><Text style={s.brand}>رصدگر ژیان</Text><Text style={s.date}>بازار • دارایی • زندگی | {today()}</Text></View>
    <Text style={s.clock}>{new Date().toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'})}</Text>
  </View>
- {showMenu&&<View style={s.menu}>{menu.map(x=><Pressable key={x} onPress={()=>{setTab(x);setShowMenu(false);}} style={s.menuItem}><Text style={s.menuLabel}>{x}</Text></Pressable>)}</View>}
+ {showMenu&&<View style={s.menu}><Text style={s.menuHeading}>بخش‌های رصدگر ژیان</Text><View style={s.menuGrid}>{menu.map(x=><Pressable key={x.name} onPress={()=>{setTab(x.name);setShowMenu(false);}} style={[s.menuTile,tab===x.name&&s.menuTileActive]}><Text style={s.menuIcon}>{x.icon}</Text><Text style={s.menuLabel}>{x.name}</Text><Text style={s.menuDesc}>{x.desc}</Text></Pressable>)}</View></View>}
  <ScrollView contentContainerStyle={s.body}>
+ {editRecord&&<Card title="ویرایش اطلاعات" color={YELLOW} icon="✏️"><Field label="عنوان" value={editName} onChange={setEditName}/>{editRecord.kind==='asset'&&<Field label="نوع دارایی" value={editType} onChange={setEditType}/ >}{editRecord.kind==='transaction'&&<><Field label="نوع تراکنش: واریز یا برداشت" value={editType} onChange={setEditType}/><Field label="تاریخ" value={editExtra} onChange={setEditExtra} keyboardType="default"/></>}{editRecord.kind==='account'&&<Field label="نام بانک" value={editExtra} onChange={setEditExtra}/>}<Field label="مبلغ ریالی" value={editValue} onChange={setEditValue}/><View style={s.row}><Pressable style={[s.primary,{flex:1}]} onPress={saveEdit}><Text style={s.primaryText}>ذخیره ویرایش</Text></Pressable><Pressable style={[s.outline,{flex:1}]} onPress={cancelEdit}><Text style={s.outlineText}>انصراف</Text></Pressable></View></Card>}
  {tab==='خانه'&&<>
   <Card title="آب‌وهوا و کیفیت هوا" color={BLUE} icon="🌤️">
    <View style={s.row}><TextInput value={cityQuery} onChangeText={v=>{setCityQuery(v);setCityResults([]);}} placeholder={`نام شهر (فعلی: ${data.city})`} style={[s.input,{flex:1}]}/><Pressable style={s.smallBtn} onPress={searchCities}><Text style={s.btnText}>یافتن شهر</Text></Pressable></View>
@@ -258,7 +283,7 @@ export default function App(){
    {data.assets.map(a=><View key={a.id} style={s.priceRow}>
     <View style={{flex:1}}><Text style={s.label}>{a.name}</Text><Text style={s.muted}>{a.type||'سایر'}</Text></View>
     <Text style={s.value}>{rial(a.value)}</Text>
-    <Pressable onPress={()=>removeAsset(a.id)} style={{padding:8}}><Text style={{color:RED,fontWeight:'bold'}}>حذف</Text></Pressable>
+    <Pressable onPress={()=>startEdit('asset',a)} style={{padding:8}}><Text style={{color:BLUE,fontWeight:'bold'}}>ویرایش</Text></Pressable><Pressable onPress={()=>removeAsset(a.id)} style={{padding:8}}><Text style={{color:RED,fontWeight:'bold'}}>حذف</Text></Pressable>
    </View>)}
    <Text style={s.total}>جمع: {rial(data.assets.reduce((a,x)=>a+x.value,0))}</Text>
    <Text style={s.muted}>ارزش دلاری = ارزش ریالی ÷ نرخ دلار ریالی. ارزش طلایی = ارزش ریالی ÷ قیمت یک گرم طلا. این دو مقدار پس از ثبت نرخ‌ها قابل محاسبه‌اند.</Text>
@@ -273,7 +298,7 @@ export default function App(){
    <Field label="چهار رقم آخر کارت (اختیاری)" value={accountLast4} onChange={setAccountLast4} placeholder="فقط چهار رقم آخر"/>
    <Field label="موجودی فعلی (ریال)" value={accountBalance} onChange={setAccountBalance}/>
    <Pressable style={s.primary} onPress={addAccount}><Text style={s.primaryText}>افزودن حساب بانکی</Text></Pressable>
-   {accounts.map(a=><View key={a.id} style={s.bankCard}><Text style={s.bankEmoji}>💳</Text><View style={{flex:1}}><Text style={s.label}>{a.bank} — {a.name}</Text><Text style={s.muted}>{a.last4?'چهار رقم آخر: '+a.last4:'بدون شماره کارت'}</Text></View><Text style={s.bankBalance}>{rial(a.balance)}</Text><Pressable onPress={()=>removeAccount(a.id)}><Text style={{color:RED,padding:6}}>حذف</Text></Pressable></View>)}
+   {accounts.map(a=><View key={a.id} style={s.bankCard}><Text style={s.bankEmoji}>💳</Text><View style={{flex:1}}><Text style={s.label}>{a.bank} — {a.name}</Text><Text style={s.muted}>{a.last4?'چهار رقم آخر: '+a.last4:'بدون شماره کارت'}</Text></View><Text style={s.bankBalance}>{rial(a.balance)}</Text><Pressable onPress={()=>startEdit('account',a)}><Text style={{color:BLUE,padding:6}}>ویرایش</Text></Pressable><Pressable onPress={()=>removeAccount(a.id)}><Text style={{color:RED,padding:6}}>حذف</Text></Pressable></View>)}
    {accounts.length===0&&<Text style={s.muted}>هنوز حساب بانکی ثبت نشده است.</Text>}
   </Card>
   <Card title="ثبت تراکنش بانکی" color={GREEN} icon="💸">
@@ -292,7 +317,7 @@ export default function App(){
   </Card>
   <Card title="گردش حساب و جمع تراکنش‌ها" color={RED} icon="📈">
    <Text style={s.label}>مجموع واریزها: {rial(totalDeposits)}</Text><Text style={s.label}>مجموع برداشت‌ها: {rial(totalWithdrawals)}</Text>
-   {transactions.slice().reverse().map(t=><View key={t.id} style={s.priceRow}><View style={{flex:1}}><Text style={s.label}>{t.type} — {t.category}</Text><Text style={s.muted}>{t.date} | {accounts.find(a=>a.id===t.accountId)?.name||'حساب حذف‌شده'} | {t.source}</Text></View><Text style={[s.value,{color:t.type==='واریز'?GREEN:RED}]}>{t.type==='واریز'?'+':'−'}{rial(t.amount)}</Text></View>)}
+   {transactions.slice().reverse().map(t=><View key={t.id} style={s.priceRow}><View style={{flex:1}}><Text style={s.label}>{t.type} — {t.category}</Text><Text style={s.muted}>{t.date} | {accounts.find(a=>a.id===t.accountId)?.name||'حساب حذف‌شده'} | {t.source}</Text></View><Text style={[s.value,{color:t.type==='واریز'?GREEN:RED}]}>{t.type==='واریز'?'+':'−'}{rial(t.amount)}</Text><Pressable onPress={()=>startEdit('transaction',t)}><Text style={{color:BLUE,padding:5}}>ویرایش</Text></Pressable></View>)}
    {transactions.length===0&&<Text style={s.muted}>تراکنشی ثبت نشده است.</Text>}
   </Card>
  </>}
@@ -339,6 +364,6 @@ export default function App(){
 }
 const s=StyleSheet.create({
  safe:{flex:1,backgroundColor:'#eef2f8'},header:{flexDirection:'row',alignItems:'center',padding:14,borderBottomWidth:1,borderColor:'#163c72',gap:10,backgroundColor:'#071b3b'},headerMark:{width:42,height:42,borderRadius:14,backgroundColor:'#0c4a88',alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'#e5b94a'},headerEye:{fontSize:27,color:'#eec85b',fontWeight:'900'},
- brand:{fontSize:25,fontWeight:'900',color:'#fff',textAlign:'right'},cardHeading:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:8},cardIcon:{fontSize:28},bankCard:{flexDirection:'row',alignItems:'center',gap:8,padding:12,backgroundColor:'#f2f6fb',borderRadius:13,marginTop:9},bankEmoji:{fontSize:28},bankBalance:{fontSize:13,color:GREEN,fontWeight:'900'},choice:{padding:10,borderRadius:9,marginVertical:4,borderWidth:1,borderColor:'#cbd5e1'},typeButton:{flex:1,padding:12,borderRadius:9,alignItems:'center',marginTop:8},date:{fontSize:13,color:INK,textAlign:'right'},clock:{fontSize:18,color:RED,fontWeight:'bold'},menuBtn:{padding:9,backgroundColor:'#e9eef6',borderRadius:10},menuText:{fontSize:23,color:BLUE},menu:{position:'absolute',zIndex:5,top:78,left:8,width:165,backgroundColor:'#fff',borderRadius:12,elevation:8,padding:8},menuItem:{padding:12,borderBottomWidth:1,borderColor:'#eee'},menuLabel:{textAlign:'right',color:INK,fontSize:17},
+ brand:{fontSize:25,fontWeight:'900',color:'#fff',textAlign:'right'},cardHeading:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:8},cardIcon:{fontSize:28},bankCard:{flexDirection:'row',alignItems:'center',gap:8,padding:12,backgroundColor:'#f2f6fb',borderRadius:13,marginTop:9},bankEmoji:{fontSize:28},bankBalance:{fontSize:13,color:GREEN,fontWeight:'900'},choice:{padding:10,borderRadius:9,marginVertical:4,borderWidth:1,borderColor:'#cbd5e1'},typeButton:{flex:1,padding:12,borderRadius:9,alignItems:'center',marginTop:8},date:{fontSize:13,color:INK,textAlign:'right'},clock:{fontSize:18,color:RED,fontWeight:'bold'},menuBtn:{padding:9,backgroundColor:'#e9eef6',borderRadius:10},menuText:{fontSize:23,color:BLUE},menu:{position:'absolute',zIndex:5,top:75,left:8,right:8,backgroundColor:'#fff',borderRadius:20,elevation:12,padding:14,borderWidth:1,borderColor:'#d7e2f1'},menuHeading:{fontSize:17,fontWeight:'900',color:BLUE,textAlign:'right',marginBottom:12},menuGrid:{flexDirection:'row',flexWrap:'wrap',gap:9},menuTile:{width:'48%',minHeight:105,backgroundColor:'#f2f6fc',borderRadius:14,padding:10,borderWidth:1,borderColor:'#dce5f0',alignItems:'flex-end',justifyContent:'center'},menuTileActive:{backgroundColor:'#e2efff',borderColor:BLUE},menuIcon:{fontSize:25,marginBottom:5},menuLabel:{textAlign:'right',color:INK,fontSize:14,fontWeight:'900'},menuDesc:{textAlign:'right',color:'#536477',fontSize:11,marginTop:4},
  body:{padding:12,paddingBottom:35},card:{backgroundColor:'#fff',borderRadius:20,padding:16,marginBottom:14,borderWidth:1,borderColor:'#dbe4f0',elevation:3,shadowColor:'#15345c',shadowOpacity:0.08,shadowRadius:8,shadowOffset:{width:0,height:3}},loanCard:{backgroundColor:'#f8fafc',borderWidth:1,borderColor:'#d9e1ea',borderRadius:12,padding:12,marginTop:12},installmentRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,paddingVertical:9,borderBottomWidth:1,borderColor:'#e3e7ec'},payBtn:{borderWidth:1,borderRadius:9,padding:9},cardTitle:{fontSize:21,fontWeight:'900',textAlign:'right',marginBottom:12},row:{flexDirection:'row',gap:8,alignItems:'center'},field:{marginVertical:7},label:{fontSize:16,color:INK,textAlign:'right',fontWeight:'700'},input:{backgroundColor:'#f6f7fa',borderWidth:1,borderColor:'#ccd3df',borderRadius:10,paddingHorizontal:12,paddingVertical:10,fontSize:17,color:INK,textAlign:'right',minHeight:46},smallBtn:{backgroundColor:BLUE,padding:13,borderRadius:10},btnText:{color:'#fff',fontWeight:'bold'},tiles:{paddingVertical:12,gap:8},metric:{fontSize:23,color:GREEN,fontWeight:'900',textAlign:'right'},muted:{fontSize:13,color:'#555',textAlign:'right',lineHeight:22,marginTop:6},outline:{borderWidth:1,borderColor:BLUE,padding:11,borderRadius:10,marginTop:12,alignItems:'center'},outlineText:{color:BLUE,fontWeight:'bold',fontSize:15},priceRow:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',paddingVertical:9,borderBottomWidth:1,borderColor:'#eee',gap:8},value:{fontSize:15,color:RED,fontWeight:'bold',textAlign:'left'},total:{fontSize:24,color:GREEN,fontWeight:'900',textAlign:'right',marginVertical:10},primary:{backgroundColor:BLUE,padding:15,borderRadius:12,alignItems:'center',marginVertical:8},primaryText:{color:'#fff',fontSize:17,fontWeight:'bold'},help:{fontSize:16,color:INK,textAlign:'right',lineHeight:28,marginBottom:8},footer:{textAlign:'center',fontSize:12,color:'#666',padding:12}
 });
