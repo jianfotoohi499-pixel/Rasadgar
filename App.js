@@ -29,13 +29,22 @@ function MiniChart({values}) {
 export default function App(){
  const [data,setData]=useState(initial),[weather,setWeather]=useState(null),[busy,setBusy]=useState(false);\n const [now,setNow]=useState(()=>new Date()),[storageLoaded,setStorageLoaded]=useState(false);
  const [marketBusy,setMarketBusy]=useState(false),[marketInfo,setMarketInfo]=useState(null);
- const [cityQuery,setCityQuery]=useState(''),[showMenu,setShowMenu]=useState(false),[tab,setTab]=useState('خانه');
+ const [cityQuery,setCityQuery]=useState(''),[cityResults,setCityResults]=useState([]),[showMenu,setShowMenu]=useState(false),[tab,setTab]=useState('خانه');
  const [assetName,setAssetName]=useState(''),[assetValue,setAssetValue]=useState(''),[assetType,setAssetType]=useState('ملک');
  useEffect(()=>{AsyncStorage.getItem(STORE).then(v=>v&&setData({...initial,...JSON.parse(v)})).catch(()=>{});},[]);
  useEffect(()=>{AsyncStorage.setItem(STORE,JSON.stringify(data)).catch(()=>{});},[data]);
  useEffect(()=>{refreshMarket();const timer=setInterval(refreshMarket,30*60*1000);return ()=>clearInterval(timer);},[]);
  const updatePrice=(k,v)=>setData(d=>({...d,prices:{...d.prices,[k]:v}}));
- async function loadWeather(city=data.city){
+ async function searchCities(){
+   const query=cityQuery.trim();
+   if(!query){Alert.alert('جست‌وجوی شهر','نام شهر را وارد کنید.');return;}
+   setBusy(true);
+   try{const geo=await fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(query)+'&count=8&language=fa&format=json').then(r=>r.json());
+     setCityResults((geo.results||[]).map(g=>({id:String(g.id)+'-'+g.latitude,name:g.name,admin1:g.admin1,country:g.country,latitude:g.latitude,longitude:g.longitude})));
+     if(!geo.results?.length) Alert.alert('نتیجه‌ای پیدا نشد','نام شهر را دقیق‌تر وارد کنید.');
+   }catch(e){Alert.alert('خطا در جست‌وجوی شهر',e.message||'اتصال اینترنت را بررسی کنید.');}finally{setBusy(false);}
+ }
+ async function loadWeather(city=data.city,coordinates=null){
    setBusy(true); try {
      const geo=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=fa&format=json`).then(r=>r.json());
      if(!geo.results?.length) throw new Error('شهر پیدا نشد');
