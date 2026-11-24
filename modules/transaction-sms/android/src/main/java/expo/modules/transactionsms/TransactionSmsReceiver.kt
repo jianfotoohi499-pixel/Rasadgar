@@ -55,11 +55,19 @@ class TransactionSmsReceiver : BroadcastReceiver() {
 
   private fun extractAmount(text: String): Long? {
     val normalized = normalizeDigits(text)
-    val contextual = Regex("(?:مبلغ|برداشت|واریز|خرید|انتقال|پرداخت|کسر)[^0-9]{0,18}([0-9][0-9,٬،.]*)")
-    val candidate = contextual.find(normalized)?.groupValues?.getOrNull(1)
-      ?: Regex("([0-9][0-9,٬،.]*)\\s*(?:ریال|تومان)").find(normalized)?.groupValues?.getOrNull(1)
-    val amount = candidate?.replace(Regex("[,٬،.]"), "")?.toLongOrNull()
-    return amount?.takeIf { it >= 1000L }
+    val patterns = listOf(
+      Regex("(?:مبلغ تراکنش|مبلغ خرید|مبلغ)[^0-9]{0,12}([0-9][0-9,٬،.]*)"),
+      Regex("(?:برداشت|واریز|خرید|انتقال|پرداخت|کسر)[^0-9]{0,8}([0-9][0-9,٬،.]*)"),
+      Regex("([0-9][0-9,٬،.]*)\\s*(?:ریال|تومان)")
+    )
+    for (pattern in patterns) {
+      val candidate = pattern.find(normalized)?.groupValues?.getOrNull(1) ?: continue
+      val digits = candidate.replace(Regex("[,٬،.]"), "")
+      if (digits.length > 12) continue
+      val amount = digits.toLongOrNull()
+      if (amount != null && amount >= 1000L) return amount
+    }
+    return null
   }
 
   private fun normalizeDigits(value: String): String {
