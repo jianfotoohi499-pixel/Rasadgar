@@ -27,7 +27,6 @@ class TransactionSmsReceiver : BroadcastReceiver() {
     val item = JSONObject().apply {
       put("id", id)
       put("sender", sender)
-      put("body", body)
       put("amount", amount)
       put("type", direction)
       put("last4", last4)
