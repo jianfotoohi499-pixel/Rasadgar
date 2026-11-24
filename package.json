@@ -18,7 +18,8 @@
     "expo-sharing": "~14.0.7",
     "xlsx": "^0.18.5",
     "expo-document-picker": "~14.0.7",
-    "babel-preset-expo": "~54.0.10"
+    "babel-preset-expo": "~54.0.10",
+    "expo-modules-core": "~3.0.29"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2"
