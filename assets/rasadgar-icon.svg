@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<defs>
+ <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#06132e"/><stop offset=".55" stop-color="#0b3475"/><stop offset="1" stop-color="#02091c"/></linearGradient>
+ <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff2a6"/><stop offset=".45" stop-color="#ffc928"/><stop offset="1" stop-color="#a65a00"/></linearGradient>
+ <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#a9f5ff"/><stop offset=".5" stop-color="#11baf7"/><stop offset="1" stop-color="#0752c9"/></linearGradient>
+ <filter id="glow"><feGaussianBlur stdDeviation="13" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<rect width="1024" height="1024" rx="210" fill="url(#bg)"/>
+<circle cx="512" cy="490" r="345" fill="none" stroke="url(#gold)" stroke-width="34"/>
+<circle cx="512" cy="490" r="300" fill="none" stroke="#28c9ff" stroke-width="13" opacity=".85"/>
+<path d="M210 500 Q512 220 814 500 Q512 780 210 500Z" fill="#061a3d" stroke="url(#cyan)" stroke-width="28" filter="url(#glow)"/>
+<circle cx="512" cy="500" r="126" fill="url(#cyan)" stroke="#d8fbff" stroke-width="12"/>
+<circle cx="512" cy="500" r="70" fill="#06152d"/><circle cx="480" cy="466" r="20" fill="#fff"/>
+<path d="M170 790 L170 680 L250 680 L250 790 M270 790 L270 625 L350 625 L350 790 M370 790 L370 555 L450 555 L450 790 M470 790 L470 485 L550 485 L550 790 M570 790 L570 420 L650 420 L650 790" fill="none" stroke="url(#cyan)" stroke-width="26" stroke-linejoin="round"/>
+<path d="M220 840 Q520 900 790 670 L740 655 L890 535 L870 700 L840 680 Q570 950 220 840Z" fill="url(#gold)" stroke="#fff1b1" stroke-width="8"/>
+<circle cx="760" cy="245" r="80" fill="url(#gold)"/>
+<path d="M700 270 Q760 210 820 270" fill="none" stroke="#fff8d0" stroke-width="15"/>
+<path d="M160 390 L205 280 L250 390" fill="none" stroke="url(#gold)" stroke-width="24" stroke-linecap="round"/>
+<circle cx="260" cy="815" r="74" fill="url(#gold)" stroke="#fff2b5" stroke-width="12"/>
+<path d="M226 820 L260 780 L294 820 L260 850Z" fill="#fff0a6"/>
+</svg>
