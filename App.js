@@ -10,7 +10,7 @@ import * as XLSX from 'xlsx';
 
 const BLUE='#1556a3', RED='#c62828', GREEN='#16834a', YELLOW='#e6b800', INK='#171717', PAPER='#f7f4ec';
 const STORE='zhian.v1';
-const today=()=>new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dateStyle:'full'}).format(new Date());
+const today=(date=new Date())=>new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dateStyle:'full',timeZone:'Asia/Tehran'}).format(date);
 const rial=n=>Number(n||0).toLocaleString('fa-IR')+' ریال';
 const initial={city:'تهران',prices:{'دلار آزاد':'','طلای ۱۸ عیار (گرم)':'','ربع سکه':'','نیم سکه':'','تمام سکه':'','نفت برنت (ریال/بشکه)':'','نفت WTI (ریال/بشکه)':''},assets:[],history:[]};
 
@@ -25,7 +25,7 @@ function MiniChart({values}) {
  return <Svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`}><Line x1="10" y1={h-12} x2={w-10} y2={h-12} stroke="#bbb"/><Path d={d} stroke={GREEN} strokeWidth="3" fill="none"/>{pts.map((pt,i)=><Circle key={i} cx={pt[0]} cy={pt[1]} r="3.5" fill={RED}/>)}</Svg>;
 }
 export default function App(){
- const [data,setData]=useState(initial),[weather,setWeather]=useState(null),[busy,setBusy]=useState(false);
+ const [data,setData]=useState(initial),[weather,setWeather]=useState(null),[busy,setBusy]=useState(false);\n const [now,setNow]=useState(()=>new Date()),[storageLoaded,setStorageLoaded]=useState(false);
  const [marketBusy,setMarketBusy]=useState(false),[marketInfo,setMarketInfo]=useState(null);
  const [cityQuery,setCityQuery]=useState(''),[showMenu,setShowMenu]=useState(false),[tab,setTab]=useState('خانه');
  const [assetName,setAssetName]=useState(''),[assetValue,setAssetValue]=useState('');
@@ -91,7 +91,7 @@ export default function App(){
    finally{setMarketBusy(false);}
  }
  function saveDay(){
-   const row={date:today(),time:new Date().toLocaleTimeString('fa-IR'),prices:data.prices,weather};
+   const row={date:today(now),time:new Intl.DateTimeFormat('fa-IR',{hour:'2-digit',minute:'2-digit',second:'2-digit',timeZone:'Asia/Tehran'}).format(now),prices:data.prices,weather};
    setData(d=>({...d,history:[...d.history,row]})); Alert.alert('ذخیره شد','اطلاعات امروز در حافظه گوشی ثبت شد.');
  }
  function addAsset(){
