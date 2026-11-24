@@ -29,7 +29,8 @@ function MiniChart({values}) {
  return <Svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`}><Line x1="10" y1={h-12} x2={w-10} y2={h-12} stroke="#bbb"/><Path d={d} stroke={GREEN} strokeWidth="3" fill="none"/>{pts.map((pt,i)=><Circle key={i} cx={pt[0]} cy={pt[1]} r="3.5" fill={RED}/>)}</Svg>;
 }
 export default function App(){
- const [data,setData]=useState(initial),[weather,setWeather]=useState(null),[busy,setBusy]=useState(false);\n const [now,setNow]=useState(()=>new Date()),[storageLoaded,setStorageLoaded]=useState(false);
+ const [data,setData]=useState(initial),[weather,setWeather]=useState(null),[busy,setBusy]=useState(false);
+ const [now,setNow]=useState(()=>new Date()),[storageLoaded,setStorageLoaded]=useState(false);
  const [marketBusy,setMarketBusy]=useState(false),[marketInfo,setMarketInfo]=useState(null);
  const [cityQuery,setCityQuery]=useState(''),[cityResults,setCityResults]=useState([]),[showMenu,setShowMenu]=useState(false),[tab,setTab]=useState('خانه');
  const [assetName,setAssetName]=useState(''),[assetValue,setAssetValue]=useState(''),[assetType,setAssetType]=useState('ملک');
@@ -128,7 +129,7 @@ export default function App(){
  }
  function addAccount(){
    const balance=normalizeNumber(accountBalance),last4=normalizeNumber(accountLast4).toString();
-   if(!accountBank.trim()||!accountName.trim()||!Number.isFinite(balance)||balance<0||(accountLast4.trim()&&!/^\\d{1,4}$/.test(last4))){Alert.alert('اطلاعات حساب','نام بانک، عنوان حساب و موجودی معتبر را وارد کنید. فقط چهار رقم آخر کارت اختیاری است.');return;}
+   if(!accountBank.trim()||!accountName.trim()||!Number.isFinite(balance)||balance<0||(accountLast4.trim()&&!/^\d{1,4}$/.test(last4))){Alert.alert('اطلاعات حساب','نام بانک، عنوان حساب و موجودی معتبر را وارد کنید. فقط چهار رقم آخر کارت اختیاری است.');return;}
    const id=Date.now();setData(d=>({...d,accounts:[...(d.accounts||[]),{id,bank:accountBank.trim(),name:accountName.trim(),last4:accountLast4.trim()?last4.padStart(4,'0'):'',balance}]}));
    setAccountBank('');setAccountName('');setAccountLast4('');setAccountBalance('');setTxAccount(String(id));
  }
@@ -198,7 +199,7 @@ export default function App(){
  function parsePastedSms(){
    const text=smsText.trim();if(!text){Alert.alert('متن پیامک','متن پیامک بانکی را جای‌گذاری کنید.');return;}
    const normalized=text.replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
-   const matches=normalized.match(/\\d[\\d,٬،.]*/g)||[];
+   const matches=normalized.match(/\d[\d,٬،.]*/g)||[];
    const amounts=matches.map(x=>Number(x.replace(/[,٬،.]/g,''))).filter(x=>Number.isFinite(x)&&x>=1000);
    if(!amounts.length){Alert.alert('مبلغ پیدا نشد','مبلغ تراکنش را دستی وارد کنید.');return;}
    setTxAmount(String(amounts.sort((a,b)=>b-a)[0]));setTxType(/واریز|دریافت|بستانکار|واریزی/.test(text)?'واریز':'برداشت');
@@ -295,7 +296,11 @@ export default function App(){
    <Text style={s.muted}>قیمت‌ها با دکمه «دریافت خودکار» از API عمومی Iran Market Data دریافت می‌شوند؛ انتشار اعلامی حدود هر ۳۰ دقیقه است. نرخ‌ها ممکن است با تأخیر یا بدون تضمین سرویس باشند.</Text>
    {marketInfo&&<Text style={s.muted}>منبع: {marketInfo.source} | زمان انتشار: {marketInfo.time} | نرخ‌های دریافت‌شده: {marketInfo.count}</Text>}
   </Card>
-  <Card title="خلاصه وضعیت مالی" color={GREEN} icon="💰">\n   <Text style={s.label}>مجموع دارایی‌ها</Text><Text style={s.total}>{rial(totalAssets)}</Text>\n   <Text style={s.label}>مانده بدهی اقساط</Text><Text style={[s.total,{color:RED}]}>{rial(remainingDebt)}</Text>\n   <Text style={s.label}>خالص دارایی پس از کسر بدهی</Text><Text style={s.total}>{rial(netAssets)}</Text>\n   <Text style={s.muted}>مجموع ارزش دارایی‌های ثبت‌شده</Text>
+  <Card title="خلاصه وضعیت مالی" color={GREEN} icon="💰">
+   <Text style={s.label}>مجموع دارایی‌ها</Text><Text style={s.total}>{rial(totalAssets)}</Text>
+   <Text style={s.label}>مانده بدهی اقساط</Text><Text style={[s.total,{color:RED}]}>{rial(remainingDebt)}</Text>
+   <Text style={s.label}>خالص دارایی پس از کسر بدهی</Text><Text style={s.total}>{rial(netAssets)}</Text>
+   <Text style={s.muted}>مجموع ارزش دارایی‌های ثبت‌شده</Text>
    <Text style={s.total}>{rial(totalAssets)}</Text><Text style={s.muted}>موجودی حساب‌های بانکی: {rial(totalBankBalance)}</Text>
    <Text style={s.muted}>برای تبدیل به دلار یا طلا، نرخ معتبر دلار و گرم طلا را در قیمت‌ها ثبت کنید.</Text>
   </Card>
