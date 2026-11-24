@@ -16,14 +16,20 @@ class TransactionSmsModule : Module() {
       val context = appContext.reactContext ?: return@AsyncFunction emptyList<Map<String, Any>>()
       val prefs = context.getSharedPreferences("rasadgar_sms_transactions", Context.MODE_PRIVATE)
       val array = JSONArray(prefs.getString("pending", "[]") ?: "[]")
+      val processed = JSONArray(prefs.getString("processed", "[]") ?: "[]")
+      val seen = mutableSetOf<String>()
+      for (i in 0 until processed.length()) seen.add(processed.optString(i))
       val results = (0 until array.length()).mapNotNull { index ->
         val obj = array.optJSONObject(index) ?: return@mapNotNull null
-        mapOf("id" to obj.optString("id"), "sender" to obj.optString("sender"),
+        val id = obj.optString("id")
+        if (!seen.add(id)) return@mapNotNull null
+        processed.put(id)
+        mapOf("id" to id, "sender" to obj.optString("sender"),
           "amount" to obj.optLong("amount"), "type" to obj.optString("type"),
           "last4" to obj.optString("last4"), "timestamp" to obj.optLong("timestamp"),
           "source" to obj.optString("source"))
       }
-      prefs.edit().remove("pending").apply()
+      prefs.edit().putString("processed", processed.toString()).remove("pending").apply()
       results
     }
     AsyncFunction("scanInbox") { maxMessages: Int ->
@@ -33,6 +39,8 @@ class TransactionSmsModule : Module() {
       val pending = JSONArray(prefs.getString("pending", "[]") ?: "[]")
       val known = mutableSetOf<String>()
       for (i in 0 until pending.length()) known.add(pending.optJSONObject(i)?.optString("id").orEmpty())
+      val processed = JSONArray(prefs.getString("processed", "[]") ?: "[]")
+      for (i in 0 until processed.length()) known.add(processed.optString(i))
       var added = 0
       var scanned = 0
       var cursor: Cursor? = null
