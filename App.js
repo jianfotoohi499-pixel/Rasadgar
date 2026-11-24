@@ -1,5 +1,5 @@
 import React, {useEffect, useMemo, useState} from 'react';
-import {SafeAreaView, ScrollView, View, Text, TextInput, Pressable, StyleSheet, Alert, ActivityIndicator} from 'react-native';
+import {SafeAreaView, ScrollView, View, Text, TextInput, Pressable, StyleSheet, Alert, ActivityIndicator, PermissionsAndroid, Platform} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, {Path, Line, Circle, Text as SvgText} from 'react-native-svg';
 import {StatusBar} from 'expo-status-bar';
@@ -7,6 +7,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import * as XLSX from 'xlsx';
+import {requireNativeModule} from 'expo-modules-core';
+const TransactionSms=requireNativeModule('TransactionSms');
 
 const BLUE='#1556a3', RED='#c62828', GREEN='#16834a', YELLOW='#e6b800', INK='#171717', PAPER='#f7f4ec';
 const STORE='zhian.v1';
@@ -34,8 +36,9 @@ export default function App(){
  const [loanName,setLoanName]=useState(''),[loanAmount,setLoanAmount]=useState(''),[installmentAmount,setInstallmentAmount]=useState(''),[installmentCount,setInstallmentCount]=useState(''),[firstDueDate,setFirstDueDate]=useState('');
  const [accountBank,setAccountBank]=useState(''),[accountName,setAccountName]=useState(''),[accountLast4,setAccountLast4]=useState(''),[accountBalance,setAccountBalance]=useState('');
  const [editRecord,setEditRecord]=useState(null),[editName,setEditName]=useState(''),[editType,setEditType]=useState(''),[editValue,setEditValue]=useState(''),[editExtra,setEditExtra]=useState('');
+ const [smsEnabled,setSmsEnabled]=useState(false),[smsSyncing,setSmsSyncing]=useState(false);
  const [txAccount,setTxAccount]=useState(''),[txAmount,setTxAmount]=useState(''),[txType,setTxType]=useState('برداشت'),[txCategory,setTxCategory]=useState('خرید'),[txDate,setTxDate]=useState(new Date().toISOString().slice(0,10)),[smsText,setSmsText]=useState('');
- useEffect(()=>{AsyncStorage.getItem(STORE).then(v=>v&&setData({...initial,...JSON.parse(v)})).catch(()=>{});},[]);
+ useEffect(()=>{AsyncStorage.getItem(STORE).then(v=>v&&setData({...initial,...JSON.parse(v)})).catch(()=>{});AsyncStorage.getItem('zhian.sms.enabled').then(v=>setSmsEnabled(v==='yes')).catch(()=>{});},[]);
  useEffect(()=>{AsyncStorage.setItem(STORE,JSON.stringify(data)).catch(()=>{});},[data]);
  useEffect(()=>{refreshMarket();const timer=setInterval(refreshMarket,30*60*1000);return ()=>clearInterval(timer);},[]);
  const updatePrice=(k,v)=>setData(d=>({...d,prices:{...d.prices,[k]:v}}));
@@ -128,6 +131,40 @@ export default function App(){
    if(!accountBank.trim()||!accountName.trim()||!Number.isFinite(balance)||balance<0||(accountLast4.trim()&&!/^\\d{1,4}$/.test(last4))){Alert.alert('اطلاعات حساب','نام بانک، عنوان حساب و موجودی معتبر را وارد کنید. فقط چهار رقم آخر کارت اختیاری است.');return;}
    const id=Date.now();setData(d=>({...d,accounts:[...(d.accounts||[]),{id,bank:accountBank.trim(),name:accountName.trim(),last4:accountLast4.trim()?last4.padStart(4,'0'):'',balance}]}));
    setAccountBank('');setAccountName('');setAccountLast4('');setAccountBalance('');setTxAccount(String(id));
+ }
+
+ async function requestSmsAccess(){
+   if(Platform.OS!=='android'){Alert.alert('عدم پشتیبانی','خواندن خودکار پیامک فقط در نسخه اندروید پشتیبانی می‌شود.');return;}
+   try{
+     const result=await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECEIVE_SMS,{title:'اجازه دریافت پیامک تراکنش',message:'رصدگر ژیان فقط پیامک‌های شناسایی‌شده به‌عنوان تراکنش بانکی را روی همین گوشی پردازش می‌کند. پیامک‌های شخصی و رمزهای یک‌بارمصرف ذخیره نمی‌شوند.',buttonPositive:'اجازه می‌دهم',buttonNegative:'انصراف'});
+     if(result===PermissionsAndroid.RESULTS.GRANTED){setSmsEnabled(true);await AsyncStorage.setItem('zhian.sms.enabled','yes');await syncSmsTransactions();Alert.alert('فعال شد','دریافت پیامک تراکنش فعال شد.');}
+     else Alert.alert('مجوز داده نشد','بدون مجوز دریافت پیامک، ثبت خودکار تراکنش انجام نمی‌شود.');
+   }catch(e){Alert.alert('خطا در مجوز پیامک',String(e));}
+ }
+ async function syncSmsTransactions(){
+   if(Platform.OS!=='android')return;
+   setSmsSyncing(true);
+   try{
+     const incoming=await TransactionSms.getPendingTransactions();
+     if(!incoming?.length)return;
+     setData(d=>{
+       const known=new Set((d.transactions||[]).map(t=>String(t.id)));
+       const fresh=incoming.filter(m=>m.id&&!known.has(String(m.id)));
+       if(!fresh.length)return d;
+       let nextAccounts=[...(d.accounts||[])];
+       const added=fresh.map(m=>{
+         const account=nextAccounts.find(a=>m.last4&&a.last4===m.last4)||(nextAccounts.length===1?nextAccounts[0]:null);
+         if(account)nextAccounts=nextAccounts.map(a=>a.id===account.id?{...a,balance:Math.max(0,a.balance+(m.type==='واریز'?Number(m.amount):-Number(m.amount)))}:a);
+         return {id:String(m.id),accountId:account?.id??null,amount:Number(m.amount),type:m.type==='واریز'?'واریز':'برداشت',category:'تراکنش پیامکی',date:new Date(Number(m.timestamp)||Date.now()).toISOString().slice(0,10),source:'پیامک خودکار',sender:String(m.sender||'')};
+       });
+       return {...d,accounts:nextAccounts,transactions:[...(d.transactions||[]),...added]};
+     });
+   }catch(e){Alert.alert('دریافت پیامک ناموفق بود',String(e));}
+   finally{setSmsSyncing(false);}
+ }
+ useEffect(()=>{if(!smsEnabled)return;syncSmsTransactions();const timer=setInterval(syncSmsTransactions,12000);return()=>clearInterval(timer);},[smsEnabled]);
+ function removeTransaction(t){
+   Alert.alert('حذف تراکنش','تراکنش حذف و اثر آن بر موجودی برگردانده شود؟',[{text:'انصراف',style:'cancel'},{text:'حذف',style:'destructive',onPress:()=>setData(d=>({...d,transactions:(d.transactions||[]).filter(x=>x.id!==t.id),accounts:(d.accounts||[]).map(a=>a.id!==t.accountId?a:{...a,balance:Math.max(0,a.balance+(t.type==='واریز'?-t.amount:t.amount))})}))}]);
  }
  function startEdit(kind,item){
    setEditRecord({kind,id:item.id,original:item});
@@ -310,14 +347,16 @@ export default function App(){
    <Field label="تاریخ تراکنش (YYYY-MM-DD)" value={txDate} onChange={setTxDate} keyboardType="default"/>
    <Pressable style={s.primary} onPress={addTransaction}><Text style={s.primaryText}>ثبت تراکنش و به‌روزرسانی موجودی</Text></Pressable>
   </Card>
-  <Card title="استخراج از پیامک بانکی" color={YELLOW} icon="✉️">
-   <Text style={s.muted}>متن پیامک را کپی و اینجا جای‌گذاری کنید. مبلغ و نوع تراکنش به‌صورت پیشنهادی استخراج می‌شود؛ پیش از ثبت کنترل کنید. متن پیامک ذخیره نمی‌شود.</Text>
+  <Card title="ثبت خودکار پیامک‌های تراکنش" color={YELLOW} icon="✉️">
+   <Text style={s.muted}>پس از فعال‌سازی، پیامک‌های ورودی از هر فرستنده فقط در صورت داشتن نشانه‌های تراکنش بانکی و مبلغ پردازش می‌شوند. متن کامل پیامک ذخیره نمی‌شود و رمزهای پویا و کدهای ورود کنار گذاشته می‌شوند.</Text>
+   <View style={s.row}><Pressable style={[s.primary,{flex:1,backgroundColor:smsEnabled?GREEN:BLUE}]} onPress={requestSmsAccess}><Text style={s.primaryText}>{smsEnabled?'مجوز پیامک فعال است':'فعال‌سازی دریافت خودکار پیامک'}</Text></Pressable><Pressable style={s.outline} onPress={syncSmsTransactions}><Text style={s.outlineText}>{smsSyncing?'در حال بررسی…':'بررسی پیامک‌ها'}</Text></Pressable></View>
+   <Text style={s.muted}>وضعیت: {smsEnabled?'فعال':'غیرفعال'} | ذخیره فقط روی همین گوشی</Text>
    <TextInput multiline value={smsText} onChangeText={setSmsText} placeholder="متن پیامک بانکی را جای‌گذاری کنید" style={[s.input,{minHeight:100,textAlignVertical:'top'}]}/>
    <Pressable style={s.outline} onPress={parsePastedSms}><Text style={s.outlineText}>استخراج مبلغ و نوع تراکنش</Text></Pressable>
   </Card>
   <Card title="گردش حساب و جمع تراکنش‌ها" color={RED} icon="📈">
    <Text style={s.label}>مجموع واریزها: {rial(totalDeposits)}</Text><Text style={s.label}>مجموع برداشت‌ها: {rial(totalWithdrawals)}</Text>
-   {transactions.slice().reverse().map(t=><View key={t.id} style={s.priceRow}><View style={{flex:1}}><Text style={s.label}>{t.type} — {t.category}</Text><Text style={s.muted}>{t.date} | {accounts.find(a=>a.id===t.accountId)?.name||'حساب حذف‌شده'} | {t.source}</Text></View><Text style={[s.value,{color:t.type==='واریز'?GREEN:RED}]}>{t.type==='واریز'?'+':'−'}{rial(t.amount)}</Text><Pressable onPress={()=>startEdit('transaction',t)}><Text style={{color:BLUE,padding:5}}>ویرایش</Text></Pressable></View>)}
+   {transactions.slice().reverse().map(t=><View key={t.id} style={s.priceRow}><View style={{flex:1}}><Text style={s.label}>{t.type} — {t.category}</Text><Text style={s.muted}>{t.date} | {accounts.find(a=>a.id===t.accountId)?.name||'نیازمند تعیین حساب'} | {t.source}</Text></View><Text style={[s.value,{color:t.type==='واریز'?GREEN:RED}]}>{t.type==='واریز'?'+':'−'}{rial(t.amount)}</Text><Pressable onPress={()=>startEdit('transaction',t)}><Text style={{color:BLUE,padding:5}}>ویرایش</Text></Pressable><Pressable onPress={()=>removeTransaction(t)}><Text style={{color:RED,padding:5}}>حذف</Text></Pressable></View>)}
    {transactions.length===0&&<Text style={s.muted}>تراکنشی ثبت نشده است.</Text>}
   </Card>
  </>}
