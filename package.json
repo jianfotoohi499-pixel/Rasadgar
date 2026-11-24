@@ -20,6 +20,7 @@
     "expo-document-picker": "~14.0.7"
   },
   "devDependencies": {
-    "@babel/core": "^7.25.2"
+    "@babel/core": "^7.25.2",
+    "babel-preset-expo": "~54.0.10"
   }
 }
