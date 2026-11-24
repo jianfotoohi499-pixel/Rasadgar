@@ -202,7 +202,7 @@ export default function App(){
  const totalBankBalance=accounts.reduce((sum,a)=>sum+(Number(a.balance)||0),0);
  const totalDeposits=transactions.filter(t=>t.type==='واریز').reduce((sum,t)=>sum+t.amount,0);
  const totalWithdrawals=transactions.filter(t=>t.type==='برداشت').reduce((sum,t)=>sum+t.amount,0);
- const totalAssets=data.assets.reduce((sum,x)=>sum+(Number(x.value)||0),0);
+ const totalAssets=data.assets.reduce((sum,x)=>sum+(Number(x.value)||0),0)+totalBankBalance;
  const totalLoanPrincipal=loans.reduce((sum,l)=>sum+(Number(l.principal)||0),0);
  const unpaidInstallments=loans.flatMap(l=>l.installments||[]).filter(i=>!i.paid);
  const remainingDebt=unpaidInstallments.reduce((sum,i)=>sum+(Number(i.amount)||0),0);
@@ -210,13 +210,13 @@ export default function App(){
  const menu=['خانه','قیمت‌ها','دارایی‌های من','حساب‌ها و تراکنش‌ها','وام‌ها و اقساط','گزارش مالی','روند تاریخی','راهنما'];
  return <SafeAreaView style={s.safe}><StatusBar style="dark"/><View style={s.header}>
    <Pressable onPress={()=>setShowMenu(!showMenu)} style={s.menuBtn}><Text style={s.menuText}>☰</Text></Pressable>
-   <View style={{flex:1}}><Text style={s.brand}>رصد گر ژیان</Text><Text style={s.date}>{today()}</Text></View>
+   <View style={s.headerMark}><Text style={s.headerEye}>◉</Text></View><View style={{flex:1}}><Text style={s.brand}>رصدگر ژیان</Text><Text style={s.date}>بازار • دارایی • زندگی | {today()}</Text></View>
    <Text style={s.clock}>{new Date().toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'})}</Text>
  </View>
  {showMenu&&<View style={s.menu}>{menu.map(x=><Pressable key={x} onPress={()=>{setTab(x);setShowMenu(false);}} style={s.menuItem}><Text style={s.menuLabel}>{x}</Text></Pressable>)}</View>}
  <ScrollView contentContainerStyle={s.body}>
  {tab==='خانه'&&<>
-  <Card title="آب‌وهوا و کیفیت هوا" color={BLUE}>
+  <Card title="آب‌وهوا و کیفیت هوا" color={BLUE} icon="🌤️">
    <View style={s.row}><TextInput value={cityQuery} onChangeText={v=>{setCityQuery(v);setCityResults([]);}} placeholder={`نام شهر (فعلی: ${data.city})`} style={[s.input,{flex:1}]}/><Pressable style={s.smallBtn} onPress={searchCities}><Text style={s.btnText}>یافتن شهر</Text></Pressable></View>
    {cityResults.map(g=><Pressable key={g.id} onPress={()=>loadWeather(g.name,g)} style={[s.outline,{marginTop:6}]}><Text style={s.outlineText}>{g.name}{g.admin1?', '+g.admin1:''}{g.country?', '+g.country:''}</Text></Pressable>)}
    {weather?<View style={s.tiles}>
@@ -228,13 +228,13 @@ export default function App(){
    {busy&&<ActivityIndicator color={BLUE}/>}
    <Pressable onPress={()=>loadWeather()} style={s.outline}><Text style={s.outlineText}>به‌روزرسانی شهر فعلی</Text></Pressable>
   </Card>
-  <Card title="نمای کلی قیمت‌ها" color={RED}>
+  <Card title="نمای کلی قیمت‌ها" color={RED} icon="📊">
    {['دلار آزاد','طلای ۱۸ عیار (گرم)','ربع سکه','نیم سکه','تمام سکه'].map(k=><View style={s.priceRow} key={k}><Text style={s.label}>{k}</Text><Text style={s.value}>{data.prices[k]?rial(data.prices[k]):'ثبت نشده'}</Text></View>)}
    <Text style={s.muted}>قیمت‌ها با دکمه «دریافت خودکار» از API عمومی Iran Market Data دریافت می‌شوند؛ انتشار اعلامی حدود هر ۳۰ دقیقه است. نرخ‌ها ممکن است با تأخیر یا بدون تضمین سرویس باشند.</Text>
    {marketInfo&&<Text style={s.muted}>منبع: {marketInfo.source} | زمان انتشار: {marketInfo.time} | نرخ‌های دریافت‌شده: {marketInfo.count}</Text>}
   </Card>
-  <Card title="خلاصه وضعیت مالی" color={GREEN}>\n   <Text style={s.label}>مجموع دارایی‌ها</Text><Text style={s.total}>{rial(totalAssets)}</Text>\n   <Text style={s.label}>مانده بدهی اقساط</Text><Text style={[s.total,{color:RED}]}>{rial(remainingDebt)}</Text>\n   <Text style={s.label}>خالص دارایی پس از کسر بدهی</Text><Text style={s.total}>{rial(netAssets)}</Text>\n   <Text style={s.muted}>مجموع ارزش دارایی‌های ثبت‌شده</Text>
-   <Text style={s.total}>{rial(data.assets.reduce((a,x)=>a+x.value,0))}</Text>
+  <Card title="خلاصه وضعیت مالی" color={GREEN} icon="💰">\n   <Text style={s.label}>مجموع دارایی‌ها</Text><Text style={s.total}>{rial(totalAssets)}</Text>\n   <Text style={s.label}>مانده بدهی اقساط</Text><Text style={[s.total,{color:RED}]}>{rial(remainingDebt)}</Text>\n   <Text style={s.label}>خالص دارایی پس از کسر بدهی</Text><Text style={s.total}>{rial(netAssets)}</Text>\n   <Text style={s.muted}>مجموع ارزش دارایی‌های ثبت‌شده</Text>
+   <Text style={s.total}>{rial(totalAssets)}</Text><Text style={s.muted}>موجودی حساب‌های بانکی: {rial(totalBankBalance)}</Text>
    <Text style={s.muted}>برای تبدیل به دلار یا طلا، نرخ معتبر دلار و گرم طلا را در قیمت‌ها ثبت کنید.</Text>
   </Card>
   <Pressable style={s.primary} onPress={saveDay}><Text style={s.primaryText}>ذخیره اطلاعات امروز در تاریخچه</Text></Pressable>
@@ -246,7 +246,7 @@ export default function App(){
    {priceFields.map(k=><Field key={k} label={k+' (ریال)'} value={data.prices[k]} onChange={v=>updatePrice(k,v)}/>)}
    <Pressable style={s.primary} onPress={()=>Alert.alert('ثبت شد','قیمت‌ها در گوشی ذخیره شدند.')}><Text style={s.primaryText}>ذخیره قیمت‌ها</Text></Pressable>
   </Card>}
- {tab==='دارایی‌های من'&&<Card title="دارایی‌های شخصی" color={GREEN}>
+ {tab==='دارایی‌های من'&&<Card title="دارایی‌های شخصی" color={GREEN} icon="🏠">
    <Text style={s.label}>نوع دارایی را انتخاب کنید</Text>
    <View style={{flexDirection:'row',flexWrap:'wrap',gap:7,marginVertical:9}}>
     {assetTypes.map(t=><Pressable key={t} onPress={()=>setAssetType(t)} style={{paddingVertical:9,paddingHorizontal:12,borderRadius:9,backgroundColor:assetType===t?GREEN:'#edf1ed',borderWidth:1,borderColor:assetType===t?GREEN:'#ccd8ce'}}><Text style={{color:assetType===t?'#fff':INK,fontWeight:'700'}}>{t}</Text></Pressable>)}
@@ -312,7 +312,7 @@ export default function App(){
    </View>)}
   </Card>}
  {tab==='گزارش مالی'&&<Card title="گزارش جامع دارایی و بدهی" color={GREEN}>
-   <Text style={s.label}>مجموع ارزش دارایی‌ها</Text><Text style={s.total}>{rial(totalAssets)}</Text>
+   <Text style={s.label}>مجموع ارزش دارایی‌ها با احتساب حساب‌های بانکی</Text><Text style={s.total}>{rial(totalAssets)}</Text><Text style={s.muted}>موجودی حساب‌های بانکی: {rial(totalBankBalance)}</Text>
    <Text style={s.label}>مجموع اصل وام‌ها</Text><Text style={s.total}>{rial(totalLoanPrincipal)}</Text>
    <Text style={s.label}>مانده اقساط پرداخت‌نشده</Text><Text style={[s.total,{color:RED}]}>{rial(remainingDebt)}</Text>
    <Text style={s.muted}>تعداد اقساط پرداخت‌نشده: {unpaidInstallments.length.toLocaleString('fa-IR')}</Text>
@@ -338,7 +338,7 @@ export default function App(){
  </ScrollView></SafeAreaView>;
 }
 const s=StyleSheet.create({
- safe:{flex:1,backgroundColor:PAPER},header:{flexDirection:'row',alignItems:'center',padding:14,borderBottomWidth:1,borderColor:'#ddd',gap:12},
- brand:{fontSize:27,fontWeight:'900',color:BLUE,textAlign:'right'},cardHeading:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:8},cardIcon:{fontSize:28},bankCard:{flexDirection:'row',alignItems:'center',gap:8,padding:12,backgroundColor:'#f2f6fb',borderRadius:13,marginTop:9},bankEmoji:{fontSize:28},bankBalance:{fontSize:13,color:GREEN,fontWeight:'900'},choice:{padding:10,borderRadius:9,marginVertical:4,borderWidth:1,borderColor:'#cbd5e1'},typeButton:{flex:1,padding:12,borderRadius:9,alignItems:'center',marginTop:8},date:{fontSize:13,color:INK,textAlign:'right'},clock:{fontSize:18,color:RED,fontWeight:'bold'},menuBtn:{padding:9,backgroundColor:'#e9eef6',borderRadius:10},menuText:{fontSize:23,color:BLUE},menu:{position:'absolute',zIndex:5,top:78,left:8,width:165,backgroundColor:'#fff',borderRadius:12,elevation:8,padding:8},menuItem:{padding:12,borderBottomWidth:1,borderColor:'#eee'},menuLabel:{textAlign:'right',color:INK,fontSize:17},
- body:{padding:12,paddingBottom:35},card:{backgroundColor:'#fff',borderRadius:16,padding:15,marginBottom:12,borderWidth:1,borderColor:'#e4dfd4'},loanCard:{backgroundColor:'#f8fafc',borderWidth:1,borderColor:'#d9e1ea',borderRadius:12,padding:12,marginTop:12},installmentRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,paddingVertical:9,borderBottomWidth:1,borderColor:'#e3e7ec'},payBtn:{borderWidth:1,borderRadius:9,padding:9},cardTitle:{fontSize:21,fontWeight:'900',textAlign:'right',marginBottom:12},row:{flexDirection:'row',gap:8,alignItems:'center'},field:{marginVertical:7},label:{fontSize:16,color:INK,textAlign:'right',fontWeight:'700'},input:{backgroundColor:'#f6f7fa',borderWidth:1,borderColor:'#ccd3df',borderRadius:10,paddingHorizontal:12,paddingVertical:10,fontSize:17,color:INK,textAlign:'right',minHeight:46},smallBtn:{backgroundColor:BLUE,padding:13,borderRadius:10},btnText:{color:'#fff',fontWeight:'bold'},tiles:{paddingVertical:12,gap:8},metric:{fontSize:23,color:GREEN,fontWeight:'900',textAlign:'right'},muted:{fontSize:13,color:'#555',textAlign:'right',lineHeight:22,marginTop:6},outline:{borderWidth:1,borderColor:BLUE,padding:11,borderRadius:10,marginTop:12,alignItems:'center'},outlineText:{color:BLUE,fontWeight:'bold',fontSize:15},priceRow:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',paddingVertical:9,borderBottomWidth:1,borderColor:'#eee',gap:8},value:{fontSize:15,color:RED,fontWeight:'bold',textAlign:'left'},total:{fontSize:24,color:GREEN,fontWeight:'900',textAlign:'right',marginVertical:10},primary:{backgroundColor:BLUE,padding:15,borderRadius:12,alignItems:'center',marginVertical:8},primaryText:{color:'#fff',fontSize:17,fontWeight:'bold'},help:{fontSize:16,color:INK,textAlign:'right',lineHeight:28,marginBottom:8},footer:{textAlign:'center',fontSize:12,color:'#666',padding:12}
+ safe:{flex:1,backgroundColor:'#eef2f8'},header:{flexDirection:'row',alignItems:'center',padding:14,borderBottomWidth:1,borderColor:'#163c72',gap:10,backgroundColor:'#071b3b'},headerMark:{width:42,height:42,borderRadius:14,backgroundColor:'#0c4a88',alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'#e5b94a'},headerEye:{fontSize:27,color:'#eec85b',fontWeight:'900'},
+ brand:{fontSize:25,fontWeight:'900',color:'#fff',textAlign:'right'},cardHeading:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:8},cardIcon:{fontSize:28},bankCard:{flexDirection:'row',alignItems:'center',gap:8,padding:12,backgroundColor:'#f2f6fb',borderRadius:13,marginTop:9},bankEmoji:{fontSize:28},bankBalance:{fontSize:13,color:GREEN,fontWeight:'900'},choice:{padding:10,borderRadius:9,marginVertical:4,borderWidth:1,borderColor:'#cbd5e1'},typeButton:{flex:1,padding:12,borderRadius:9,alignItems:'center',marginTop:8},date:{fontSize:13,color:INK,textAlign:'right'},clock:{fontSize:18,color:RED,fontWeight:'bold'},menuBtn:{padding:9,backgroundColor:'#e9eef6',borderRadius:10},menuText:{fontSize:23,color:BLUE},menu:{position:'absolute',zIndex:5,top:78,left:8,width:165,backgroundColor:'#fff',borderRadius:12,elevation:8,padding:8},menuItem:{padding:12,borderBottomWidth:1,borderColor:'#eee'},menuLabel:{textAlign:'right',color:INK,fontSize:17},
+ body:{padding:12,paddingBottom:35},card:{backgroundColor:'#fff',borderRadius:20,padding:16,marginBottom:14,borderWidth:1,borderColor:'#dbe4f0',elevation:3,shadowColor:'#15345c',shadowOpacity:0.08,shadowRadius:8,shadowOffset:{width:0,height:3}},loanCard:{backgroundColor:'#f8fafc',borderWidth:1,borderColor:'#d9e1ea',borderRadius:12,padding:12,marginTop:12},installmentRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,paddingVertical:9,borderBottomWidth:1,borderColor:'#e3e7ec'},payBtn:{borderWidth:1,borderRadius:9,padding:9},cardTitle:{fontSize:21,fontWeight:'900',textAlign:'right',marginBottom:12},row:{flexDirection:'row',gap:8,alignItems:'center'},field:{marginVertical:7},label:{fontSize:16,color:INK,textAlign:'right',fontWeight:'700'},input:{backgroundColor:'#f6f7fa',borderWidth:1,borderColor:'#ccd3df',borderRadius:10,paddingHorizontal:12,paddingVertical:10,fontSize:17,color:INK,textAlign:'right',minHeight:46},smallBtn:{backgroundColor:BLUE,padding:13,borderRadius:10},btnText:{color:'#fff',fontWeight:'bold'},tiles:{paddingVertical:12,gap:8},metric:{fontSize:23,color:GREEN,fontWeight:'900',textAlign:'right'},muted:{fontSize:13,color:'#555',textAlign:'right',lineHeight:22,marginTop:6},outline:{borderWidth:1,borderColor:BLUE,padding:11,borderRadius:10,marginTop:12,alignItems:'center'},outlineText:{color:BLUE,fontWeight:'bold',fontSize:15},priceRow:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',paddingVertical:9,borderBottomWidth:1,borderColor:'#eee',gap:8},value:{fontSize:15,color:RED,fontWeight:'bold',textAlign:'left'},total:{fontSize:24,color:GREEN,fontWeight:'900',textAlign:'right',marginVertical:10},primary:{backgroundColor:BLUE,padding:15,borderRadius:12,alignItems:'center',marginVertical:8},primaryText:{color:'#fff',fontSize:17,fontWeight:'bold'},help:{fontSize:16,color:INK,textAlign:'right',lineHeight:28,marginBottom:8},footer:{textAlign:'center',fontSize:12,color:'#666',padding:12}
 });
