@@ -43,7 +43,7 @@ export default function App(){
  useEffect(()=>{let active=true;(async()=>{try{const [saved,sms]=await Promise.all([AsyncStorage.getItem(STORE),AsyncStorage.getItem('zhian.sms.enabled')]);if(!active)return;if(saved){const parsed=JSON.parse(saved);setData({...initial,...parsed,prices:{...initial.prices,...(parsed.prices||{})},assets:Array.isArray(parsed.assets)?parsed.assets:[],loans:Array.isArray(parsed.loans)?parsed.loans:[],accounts:Array.isArray(parsed.accounts)?parsed.accounts:[],transactions:Array.isArray(parsed.transactions)?parsed.transactions:[],history:Array.isArray(parsed.history)?parsed.history:[]});}setSmsEnabled(sms==='yes');}catch(e){console.warn('Storage restore failed',e);}finally{if(active)setStorageLoaded(true);}})();return()=>{active=false;};},[]);
  useEffect(()=>{if(storageLoaded)AsyncStorage.setItem(STORE,JSON.stringify(data)).catch(e=>console.warn('Storage save failed',e));},[data,storageLoaded]);
  useEffect(()=>{const clock=setInterval(()=>setNow(new Date()),1000);return()=>clearInterval(clock);},[]);
- useEffect(()=>{refreshMarket(true);const timer=setInterval(()=>refreshMarket(true),30*60*1000);return ()=>clearInterval(timer);},[]);
+ useEffect(()=>{refreshMarket(true);const timer=setInterval(()=>refreshMarket(true),30*60*1000);return ()=>clearInterval(timer);},[]);\n useEffect(()=>{if(!storageLoaded)return;loadWeather(data.city,null,true);const timer=setInterval(()=>loadWeather(data.city,null,true),30*60*1000);return()=>clearInterval(timer);},[storageLoaded]);
  const updatePrice=(k,v)=>setData(d=>({...d,prices:{...d.prices,[k]:v}}));
  async function searchCities(){
    const query=cityQuery.trim();
@@ -54,7 +54,7 @@ export default function App(){
      if(!geo.results?.length) Alert.alert('نتیجه‌ای پیدا نشد','نام شهر را دقیق‌تر وارد کنید.');
    }catch(e){Alert.alert('خطا در جست‌وجوی شهر',e.message||'اتصال اینترنت را بررسی کنید.');}finally{setBusy(false);}
  }
- async function loadWeather(city=data.city,coordinates=null){
+ async function loadWeather(city=data.city,coordinates=null,silent=false){
    setBusy(true); try {
      const g=coordinates||(await fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(city)+'&count=1&language=fa&format=json').then(r=>r.json())).results?.[0];
      if(!g) throw new Error('شهر پیدا نشد');
@@ -62,10 +62,10 @@ export default function App(){
        fetch(`https://api.open-meteo.com/v1/forecast?latitude=${g.latitude}&longitude=${g.longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&forecast_days=2&timezone=auto`).then(r=>r.json()),
        fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${g.latitude}&longitude=${g.longitude}&current=us_aqi,pm2_5,pm10&timezone=auto`).then(r=>r.json())
      ]);
-     setWeather({name:g.name,temp:w.current?.temperature_2m,feels:w.current?.apparent_temperature,humidity:w.current?.relative_humidity_2m,wind:w.current?.wind_speed_10m,aqi:a.current?.us_aqi,pm25:a.current?.pm2_5,pm10:a.current?.pm10,today:{date:w.daily?.time?.[0],max:w.daily?.temperature_2m_max?.[0],min:w.daily?.temperature_2m_min?.[0],code:w.daily?.weather_code?.[0],rain:w.daily?.precipitation_probability_max?.[0]},tomorrow:{date:w.daily?.time?.[1],max:w.daily?.temperature_2m_max?.[1],min:w.daily?.temperature_2m_min?.[1],code:w.daily?.weather_code?.[1],rain:w.daily?.precipitation_probability_max?.[1]},updated:new Date().toLocaleTimeString('fa-IR')});
+     setWeather({name:g.name,temp:w.current?.temperature_2m,feels:w.current?.apparent_temperature,humidity:w.current?.relative_humidity_2m,wind:w.current?.wind_speed_10m,aqi:a.current?.us_aqi,pm25:a.current?.pm2_5,pm10:a.current?.pm10,today:{date:w.daily?.time?.[0],max:w.daily?.temperature_2m_max?.[0],min:w.daily?.temperature_2m_min?.[0],code:w.daily?.weather_code?.[0],rain:w.daily?.precipitation_probability_max?.[0]},tomorrow:{date:w.daily?.time?.[1],max:w.daily?.temperature_2m_max?.[1],min:w.daily?.temperature_2m_min?.[1],code:w.daily?.weather_code?.[1],rain:w.daily?.precipitation_probability_max?.[1]},updated:new Date().toLocaleTimeString('fa-IR',{timeZone:'Asia/Tehran'})});
      setCityResults([]);setCityQuery(g.name);
      setData(d=>({...d,city:g.name}));
-   } catch(e){Alert.alert('دریافت اطلاعات ناموفق بود',e.message||'اتصال اینترنت یا منبع داده را بررسی کنید.');}
+   } catch(e){if(!silent)Alert.alert('دریافت اطلاعات ناموفق بود',e.message||'اتصال اینترنت یا منبع داده را بررسی کنید.');}
    finally{setBusy(false);}
  }
 
@@ -191,7 +191,7 @@ export default function App(){
  function saveEdit(){
    if(!editRecord)return;
    const value=normalizeNumber(editValue),{kind,id,original}=editRecord;
-   if(!Number.isFinite(value)||value<0||!editName.trim()){Alert.alert('اطلاعات نامعتبر','عنوان و مبلغ معتبر وارد کنید.');return;}
+   if(!Number.isFinite(value)||value<0||!editName.trim()||(kind==='transaction'&&(!['واریز','برداشت'].includes(editType)||value<=0||!/^\\d{4}-\\d{2}-\\d{2}$/.test(editExtra)))){Alert.alert('اطلاعات نامعتبر','عنوان، مبلغ، نوع تراکنش و تاریخ معتبر را بررسی کنید.');return;}
    setData(d=>{
      if(kind==='asset')return {...d,assets:d.assets.map(x=>x.id===id?{...x,name:editName.trim(),type:editType,value}:x)};
      if(kind==='account')return {...d,accounts:(d.accounts||[]).map(x=>x.id===id?{...x,name:editName.trim(),bank:editExtra.trim(),balance:value,last4:x.last4}:x)};
@@ -207,7 +207,7 @@ export default function App(){
  }
  function addTransaction(){
    const amount=normalizeNumber(txAmount);
-   if(!txAccount||!Number.isFinite(amount)||amount<=0||!txDate.trim()){Alert.alert('اطلاعات تراکنش','حساب، مبلغ و تاریخ معتبر را انتخاب کنید.');return;}
+   if(!txAccount||!Number.isFinite(amount)||amount<=0||!/^\\d{4}-\\d{2}-\\d{2}$/.test(txDate)){Alert.alert('اطلاعات تراکنش','حساب، مبلغ و تاریخ معتبر با قالب YYYY-MM-DD را وارد کنید.');return;}
    setData(d=>({...d,accounts:(d.accounts||[]).map(a=>String(a.id)!==String(txAccount)?a:{...a,balance:a.balance+(txType==='واریز'?amount:-amount)}),transactions:[...(d.transactions||[]),{id:Date.now(),accountId:Number(txAccount),amount,type:txType,category:txCategory,date:txDate,source:'دستی'}]}));
    setTxAmount('');setSmsText('');
  }
