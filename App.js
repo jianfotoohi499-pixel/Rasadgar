@@ -14,9 +14,9 @@ const today=(date=new Date())=>new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dat
 const rial=n=>Number(n||0).toLocaleString('fa-IR')+' ریال';
 const normalizeNumber=value=>{const digits=String(value??'').replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));const cleaned=digits.replace(/[٬،,\s]/g,'').replace(/٫/g,'.');return Number(cleaned);};
 const assetTypes=['ملک','خودرو','طلا','ارز','سپرده بانکی','سهام','سایر'];
-const initial={city:'تهران',prices:{'دلار آزاد':'','طلای ۱۸ عیار (گرم)':'','ربع سکه':'','نیم سکه':'','تمام سکه':'','نفت برنت (ریال/بشکه)':'','نفت WTI (ریال/بشکه)':''},assets:[],loans:[],history:[]};
+const initial={city:'تهران',prices:{'دلار آزاد':'','طلای ۱۸ عیار (گرم)':'','ربع سکه':'','نیم سکه':'','تمام سکه':'','نفت برنت (ریال/بشکه)':'','نفت WTI (ریال/بشکه)':''},assets:[],loans:[],accounts:[],transactions:[],history:[]};
 
-function Card({title,children,color=BLUE}){return <View style={s.card}><Text style={[s.cardTitle,{color}]}>{title}</Text>{children}</View>}
+function Card({title,children,color=BLUE,icon='📊'}){return <View style={s.card}><View style={s.cardHeading}><Text style={s.cardIcon}>{icon}</Text><Text style={[s.cardTitle,{color,flex:1}]}>{title}</Text></View>{children}</View>}
 function Field({label,value,onChange,placeholder='مقدار را وارد کنید',keyboardType='decimal-pad'}){return <View style={s.field}><Text style={s.label}>{label}</Text><TextInput value={String(value??'')} onChangeText={onChange} keyboardType={keyboardType} placeholder={placeholder} placeholderTextColor="#888" style={s.input}/></View>}
 function MiniChart({values}) {
  const vals=values.map(x=>Number(x)||0).filter(x=>x>0);
@@ -32,6 +32,8 @@ export default function App(){
  const [cityQuery,setCityQuery]=useState(''),[cityResults,setCityResults]=useState([]),[showMenu,setShowMenu]=useState(false),[tab,setTab]=useState('خانه');
  const [assetName,setAssetName]=useState(''),[assetValue,setAssetValue]=useState(''),[assetType,setAssetType]=useState('ملک');
  const [loanName,setLoanName]=useState(''),[loanAmount,setLoanAmount]=useState(''),[installmentAmount,setInstallmentAmount]=useState(''),[installmentCount,setInstallmentCount]=useState(''),[firstDueDate,setFirstDueDate]=useState('');
+ const [accountBank,setAccountBank]=useState(''),[accountName,setAccountName]=useState(''),[accountLast4,setAccountLast4]=useState(''),[accountBalance,setAccountBalance]=useState('');
+ const [txAccount,setTxAccount]=useState(''),[txAmount,setTxAmount]=useState(''),[txType,setTxType]=useState('برداشت'),[txCategory,setTxCategory]=useState('خرید'),[txDate,setTxDate]=useState(new Date().toISOString().slice(0,10)),[smsText,setSmsText]=useState('');
  useEffect(()=>{AsyncStorage.getItem(STORE).then(v=>v&&setData({...initial,...JSON.parse(v)})).catch(()=>{});},[]);
  useEffect(()=>{AsyncStorage.setItem(STORE,JSON.stringify(data)).catch(()=>{});},[data]);
  useEffect(()=>{refreshMarket();const timer=setInterval(refreshMarket,30*60*1000);return ()=>clearInterval(timer);},[]);
@@ -120,6 +122,29 @@ export default function App(){
    setData(d=>({...d,assets:[...d.assets,{id:Date.now(),type:assetType,name:assetName.trim(),value:numericValue}]}));
    setAssetName('');setAssetValue('');
  }
+ function addAccount(){
+   const balance=normalizeNumber(accountBalance),last4=normalizeNumber(accountLast4).toString();
+   if(!accountBank.trim()||!accountName.trim()||!Number.isFinite(balance)||balance<0||(accountLast4.trim()&&!/^\\d{1,4}$/.test(last4))){Alert.alert('اطلاعات حساب','نام بانک، عنوان حساب و موجودی معتبر را وارد کنید. فقط چهار رقم آخر کارت اختیاری است.');return;}
+   const id=Date.now();setData(d=>({...d,accounts:[...(d.accounts||[]),{id,bank:accountBank.trim(),name:accountName.trim(),last4:accountLast4.trim()?last4.padStart(4,'0'):'',balance}]}));
+   setAccountBank('');setAccountName('');setAccountLast4('');setAccountBalance('');setTxAccount(String(id));
+ }
+ function addTransaction(){
+   const amount=normalizeNumber(txAmount);
+   if(!txAccount||!Number.isFinite(amount)||amount<=0||!txDate.trim()){Alert.alert('اطلاعات تراکنش','حساب، مبلغ و تاریخ معتبر را انتخاب کنید.');return;}
+   setData(d=>({...d,accounts:(d.accounts||[]).map(a=>String(a.id)!==String(txAccount)?a:{...a,balance:Math.max(0,a.balance+(txType==='واریز'?amount:-amount))}),transactions:[...(d.transactions||[]),{id:Date.now(),accountId:Number(txAccount),amount,type:txType,category:txCategory,date:txDate,source:'دستی'}]}));
+   setTxAmount('');setSmsText('');
+ }
+ function parsePastedSms(){
+   const text=smsText.trim();if(!text){Alert.alert('متن پیامک','متن پیامک بانکی را جای‌گذاری کنید.');return;}
+   const normalized=text.replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+   const matches=normalized.match(/\\d[\\d,٬،.]*/g)||[];
+   const amounts=matches.map(x=>Number(x.replace(/[,٬،.]/g,''))).filter(x=>Number.isFinite(x)&&x>=1000);
+   if(!amounts.length){Alert.alert('مبلغ پیدا نشد','مبلغ تراکنش را دستی وارد کنید.');return;}
+   setTxAmount(String(amounts.sort((a,b)=>b-a)[0]));setTxType(/واریز|دریافت|بستانکار|واریزی/.test(text)?'واریز':'برداشت');
+   const account=(data.accounts||[]).find(a=>a.last4&&normalized.includes(a.last4));if(account)setTxAccount(String(account.id));
+   Alert.alert('اطلاعات استخراج شد','مبلغ و نوع تراکنش پیشنهاد شد؛ پیش از ثبت آن را بررسی کنید.');
+ }
+ function removeAccount(id){Alert.alert('حذف حساب','حساب حذف شود؟ تراکنش‌های قبلی حفظ می‌شوند.',[{text:'انصراف',style:'cancel'},{text:'حذف',style:'destructive',onPress:()=>setData(d=>({...d,accounts:(d.accounts||[]).filter(a=>a.id!==id)}))}]);}
  function addLoan(){
    const principal=normalizeNumber(loanAmount),payment=normalizeNumber(installmentAmount),count=normalizeNumber(installmentCount);
    const parts=firstDueDate.trim().replace(/-/g,'/').split('/').map(x=>normalizeNumber(x));
@@ -148,6 +173,8 @@ export default function App(){
      const rows=data.history.map(h=>({تاریخ:h.date,ساعت:h.time,شهر:h.weather?.name||data.city,دما:h.weather?.temp??'',AQI:h.weather?.aqi??'',دلار_ریال:h.prices?.['دلار آزاد']||'',طلای_۱۸_عیار_ریال:h.prices?.['طلای ۱۸ عیار (گرم)']||'',ربع_سکه:h.prices?.['ربع سکه']||'',نیم_سکه:h.prices?.['نیم سکه']||'',تمام_سکه:h.prices?.['تمام سکه']||'',نفت_برنت_ریال:h.prices?.['نفت برنت (ریال/بشکه)']||'',نفت_WTI_ریال:h.prices?.['نفت WTI (ریال/بشکه)']||''}));
      const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'تاریخچه');
      XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(data.assets.map(a=>({دارایی:a.name,ارزش_ریالی:a.value}))), 'دارایی‌ها');
+     XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet((data.accounts||[]).map(a=>({بانک:a.bank,عنوان_حساب:a.name,چهار_رقم_آخر:a.last4,موجودی_ریال:a.balance}))), 'حساب‌ها');
+     XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet((data.transactions||[]).map(t=>({تاریخ:t.date,حساب:(data.accounts||[]).find(a=>a.id===t.accountId)?.name||'',نوع:t.type,دسته:t.category,مبلغ_ریال:t.amount,منبع:t.source}))), 'تراکنش‌ها');
      XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet((data.loans||[]).flatMap(l=>(l.installments||[]).map(i=>({وام:l.name,اصل_وام_ریال:l.principal,شماره_قسط:i.number,مبلغ_قسط_ریال:i.amount,تاریخ_سررسید:i.dueDate,وضعیت:i.paid?'پرداخت‌شده':'پرداخت‌نشده'})))), 'وام‌ها و اقساط');
      const out=XLSX.write(wb,{type:'base64',bookType:'xlsx'}); const uri=FileSystem.documentDirectory+'rasadgar-zhian.xlsx';
      await FileSystem.writeAsStringAsync(uri,out,{encoding:FileSystem.EncodingType.Base64});
@@ -170,12 +197,17 @@ export default function App(){
  }
  const priceFields=Object.keys(data.prices);
  const loans=data.loans||[];
+ const accounts=data.accounts||[];
+ const transactions=data.transactions||[];
+ const totalBankBalance=accounts.reduce((sum,a)=>sum+(Number(a.balance)||0),0);
+ const totalDeposits=transactions.filter(t=>t.type==='واریز').reduce((sum,t)=>sum+t.amount,0);
+ const totalWithdrawals=transactions.filter(t=>t.type==='برداشت').reduce((sum,t)=>sum+t.amount,0);
  const totalAssets=data.assets.reduce((sum,x)=>sum+(Number(x.value)||0),0);
  const totalLoanPrincipal=loans.reduce((sum,l)=>sum+(Number(l.principal)||0),0);
  const unpaidInstallments=loans.flatMap(l=>l.installments||[]).filter(i=>!i.paid);
  const remainingDebt=unpaidInstallments.reduce((sum,i)=>sum+(Number(i.amount)||0),0);
  const netAssets=totalAssets-remainingDebt;
- const menu=['خانه','قیمت‌ها','دارایی‌های من','وام‌ها و اقساط','گزارش مالی','روند تاریخی','راهنما'];
+ const menu=['خانه','قیمت‌ها','دارایی‌های من','حساب‌ها و تراکنش‌ها','وام‌ها و اقساط','گزارش مالی','روند تاریخی','راهنما'];
  return <SafeAreaView style={s.safe}><StatusBar style="dark"/><View style={s.header}>
    <Pressable onPress={()=>setShowMenu(!showMenu)} style={s.menuBtn}><Text style={s.menuText}>☰</Text></Pressable>
    <View style={{flex:1}}><Text style={s.brand}>رصد گر ژیان</Text><Text style={s.date}>{today()}</Text></View>
@@ -232,6 +264,38 @@ export default function App(){
    <Text style={s.muted}>ارزش دلاری = ارزش ریالی ÷ نرخ دلار ریالی. ارزش طلایی = ارزش ریالی ÷ قیمت یک گرم طلا. این دو مقدار پس از ثبت نرخ‌ها قابل محاسبه‌اند.</Text>
    {data.assets.map(a=><Text key={'calc'+a.id} style={s.muted}>{a.name}: {data.prices['دلار آزاد']?`$${(a.value/Number(data.prices['دلار آزاد'])).toFixed(2)}`:'—'} | {data.prices['طلای ۱۸ عیار (گرم)']?`${(a.value/Number(data.prices['طلای ۱۸ عیار (گرم)'])).toFixed(2)} گرم طلا`:'—'}</Text>)}
   </Card>}
+ {tab==='حساب‌ها و تراکنش‌ها'&&<>
+  <Card title="حساب‌های بانکی و موجودی‌ها" color={BLUE} icon="🏦">
+   <Text style={s.total}>مجموع موجودی ثبت‌شده: {rial(totalBankBalance)}</Text>
+   <Text style={s.muted}>موجودی فعلی را دستی ثبت کنید یا با پیامک بانکی به‌روزرسانی کنید. اتصال مستقیم به سامانه بانک فعلاً وجود ندارد.</Text>
+   <Field label="نام بانک" value={accountBank} onChange={setAccountBank} placeholder="مثلاً بانک ملت"/>
+   <Field label="عنوان حساب" value={accountName} onChange={setAccountName} placeholder="مثلاً حساب حقوق"/>
+   <Field label="چهار رقم آخر کارت (اختیاری)" value={accountLast4} onChange={setAccountLast4} placeholder="فقط چهار رقم آخر"/>
+   <Field label="موجودی فعلی (ریال)" value={accountBalance} onChange={setAccountBalance}/>
+   <Pressable style={s.primary} onPress={addAccount}><Text style={s.primaryText}>افزودن حساب بانکی</Text></Pressable>
+   {accounts.map(a=><View key={a.id} style={s.bankCard}><Text style={s.bankEmoji}>💳</Text><View style={{flex:1}}><Text style={s.label}>{a.bank} — {a.name}</Text><Text style={s.muted}>{a.last4?'چهار رقم آخر: '+a.last4:'بدون شماره کارت'}</Text></View><Text style={s.bankBalance}>{rial(a.balance)}</Text><Pressable onPress={()=>removeAccount(a.id)}><Text style={{color:RED,padding:6}}>حذف</Text></Pressable></View>)}
+   {accounts.length===0&&<Text style={s.muted}>هنوز حساب بانکی ثبت نشده است.</Text>}
+  </Card>
+  <Card title="ثبت تراکنش بانکی" color={GREEN} icon="💸">
+   <Text style={s.muted}>هر واریز یا برداشت را به حساب مربوط وصل کنید تا موجودی محاسباتی آن حساب به‌روزرسانی شود.</Text>
+   {accounts.map(a=><Pressable key={a.id} onPress={()=>setTxAccount(String(a.id))} style={[s.choice,{backgroundColor:String(txAccount)===String(a.id)?'#dceaff':'#f4f6f9'}]}><Text style={s.label}>{String(txAccount)===String(a.id)?'✓ ':''}{a.bank} — {a.name}</Text></Pressable>)}
+   <View style={s.row}>{['برداشت','واریز'].map(t=><Pressable key={t} onPress={()=>setTxType(t)} style={[s.typeButton,{backgroundColor:txType===t?(t==='واریز'?'#dff4e7':'#fde8e8'):'#f3f4f6'}]}><Text style={s.label}>{t==='واریز'?'⬇️ ':'⬆️ '}{t}</Text></Pressable>)}</View>
+   <Field label="مبلغ تراکنش (ریال)" value={txAmount} onChange={setTxAmount}/>
+   <Field label="دسته‌بندی" value={txCategory} onChange={setTxCategory} placeholder="خرید، قبض، حقوق، انتقال"/>
+   <Field label="تاریخ تراکنش (YYYY-MM-DD)" value={txDate} onChange={setTxDate} keyboardType="default"/>
+   <Pressable style={s.primary} onPress={addTransaction}><Text style={s.primaryText}>ثبت تراکنش و به‌روزرسانی موجودی</Text></Pressable>
+  </Card>
+  <Card title="استخراج از پیامک بانکی" color={YELLOW} icon="✉️">
+   <Text style={s.muted}>متن پیامک را کپی و اینجا جای‌گذاری کنید. مبلغ و نوع تراکنش به‌صورت پیشنهادی استخراج می‌شود؛ پیش از ثبت کنترل کنید. متن پیامک ذخیره نمی‌شود.</Text>
+   <TextInput multiline value={smsText} onChangeText={setSmsText} placeholder="متن پیامک بانکی را جای‌گذاری کنید" style={[s.input,{minHeight:100,textAlignVertical:'top'}]}/>
+   <Pressable style={s.outline} onPress={parsePastedSms}><Text style={s.outlineText}>استخراج مبلغ و نوع تراکنش</Text></Pressable>
+  </Card>
+  <Card title="گردش حساب و جمع تراکنش‌ها" color={RED} icon="📈">
+   <Text style={s.label}>مجموع واریزها: {rial(totalDeposits)}</Text><Text style={s.label}>مجموع برداشت‌ها: {rial(totalWithdrawals)}</Text>
+   {transactions.slice().reverse().map(t=><View key={t.id} style={s.priceRow}><View style={{flex:1}}><Text style={s.label}>{t.type} — {t.category}</Text><Text style={s.muted}>{t.date} | {accounts.find(a=>a.id===t.accountId)?.name||'حساب حذف‌شده'} | {t.source}</Text></View><Text style={[s.value,{color:t.type==='واریز'?GREEN:RED}]}>{t.type==='واریز'?'+':'−'}{rial(t.amount)}</Text></View>)}
+   {transactions.length===0&&<Text style={s.muted}>تراکنشی ثبت نشده است.</Text>}
+  </Card>
+ </>}
  {tab==='وام‌ها و اقساط'&&<Card title="ثبت و مدیریت وام‌ها و اقساط" color={RED}>
    <Text style={s.muted}>اقساط به‌صورت ماهانه از تاریخ اولین سررسید ساخته می‌شوند. تاریخ را با تقویم میلادی و قالب YYYY/MM/DD وارد کنید.</Text>
    <Field label="نام وام" value={loanName} onChange={setLoanName} placeholder="مثلاً وام مسکن"/>
@@ -275,6 +339,6 @@ export default function App(){
 }
 const s=StyleSheet.create({
  safe:{flex:1,backgroundColor:PAPER},header:{flexDirection:'row',alignItems:'center',padding:14,borderBottomWidth:1,borderColor:'#ddd',gap:12},
- brand:{fontSize:27,fontWeight:'900',color:BLUE,textAlign:'right'},date:{fontSize:13,color:INK,textAlign:'right'},clock:{fontSize:18,color:RED,fontWeight:'bold'},menuBtn:{padding:9,backgroundColor:'#e9eef6',borderRadius:10},menuText:{fontSize:23,color:BLUE},menu:{position:'absolute',zIndex:5,top:78,left:8,width:165,backgroundColor:'#fff',borderRadius:12,elevation:8,padding:8},menuItem:{padding:12,borderBottomWidth:1,borderColor:'#eee'},menuLabel:{textAlign:'right',color:INK,fontSize:17},
+ brand:{fontSize:27,fontWeight:'900',color:BLUE,textAlign:'right'},cardHeading:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:8},cardIcon:{fontSize:28},bankCard:{flexDirection:'row',alignItems:'center',gap:8,padding:12,backgroundColor:'#f2f6fb',borderRadius:13,marginTop:9},bankEmoji:{fontSize:28},bankBalance:{fontSize:13,color:GREEN,fontWeight:'900'},choice:{padding:10,borderRadius:9,marginVertical:4,borderWidth:1,borderColor:'#cbd5e1'},typeButton:{flex:1,padding:12,borderRadius:9,alignItems:'center',marginTop:8},date:{fontSize:13,color:INK,textAlign:'right'},clock:{fontSize:18,color:RED,fontWeight:'bold'},menuBtn:{padding:9,backgroundColor:'#e9eef6',borderRadius:10},menuText:{fontSize:23,color:BLUE},menu:{position:'absolute',zIndex:5,top:78,left:8,width:165,backgroundColor:'#fff',borderRadius:12,elevation:8,padding:8},menuItem:{padding:12,borderBottomWidth:1,borderColor:'#eee'},menuLabel:{textAlign:'right',color:INK,fontSize:17},
  body:{padding:12,paddingBottom:35},card:{backgroundColor:'#fff',borderRadius:16,padding:15,marginBottom:12,borderWidth:1,borderColor:'#e4dfd4'},loanCard:{backgroundColor:'#f8fafc',borderWidth:1,borderColor:'#d9e1ea',borderRadius:12,padding:12,marginTop:12},installmentRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,paddingVertical:9,borderBottomWidth:1,borderColor:'#e3e7ec'},payBtn:{borderWidth:1,borderRadius:9,padding:9},cardTitle:{fontSize:21,fontWeight:'900',textAlign:'right',marginBottom:12},row:{flexDirection:'row',gap:8,alignItems:'center'},field:{marginVertical:7},label:{fontSize:16,color:INK,textAlign:'right',fontWeight:'700'},input:{backgroundColor:'#f6f7fa',borderWidth:1,borderColor:'#ccd3df',borderRadius:10,paddingHorizontal:12,paddingVertical:10,fontSize:17,color:INK,textAlign:'right',minHeight:46},smallBtn:{backgroundColor:BLUE,padding:13,borderRadius:10},btnText:{color:'#fff',fontWeight:'bold'},tiles:{paddingVertical:12,gap:8},metric:{fontSize:23,color:GREEN,fontWeight:'900',textAlign:'right'},muted:{fontSize:13,color:'#555',textAlign:'right',lineHeight:22,marginTop:6},outline:{borderWidth:1,borderColor:BLUE,padding:11,borderRadius:10,marginTop:12,alignItems:'center'},outlineText:{color:BLUE,fontWeight:'bold',fontSize:15},priceRow:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',paddingVertical:9,borderBottomWidth:1,borderColor:'#eee',gap:8},value:{fontSize:15,color:RED,fontWeight:'bold',textAlign:'left'},total:{fontSize:24,color:GREEN,fontWeight:'900',textAlign:'right',marginVertical:10},primary:{backgroundColor:BLUE,padding:15,borderRadius:12,alignItems:'center',marginVertical:8},primaryText:{color:'#fff',fontSize:17,fontWeight:'bold'},help:{fontSize:16,color:INK,textAlign:'right',lineHeight:28,marginBottom:8},footer:{textAlign:'center',fontSize:12,color:'#666',padding:12}
 });
