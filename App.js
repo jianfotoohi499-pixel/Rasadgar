@@ -13,6 +13,7 @@ const TransactionSms=requireNativeModule('TransactionSms');
 const BLUE='#1556a3', RED='#c62828', GREEN='#16834a', YELLOW='#e6b800', INK='#171717', PAPER='#f7f4ec';
 const STORE='zhian.v1';
 const today=(date=new Date())=>new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dateStyle:'full',timeZone:'Asia/Tehran'}).format(date);
+const tehranDate=(date=new Date())=>{const p=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Tehran',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);const v=Object.fromEntries(p.map(x=>[x.type,x.value]));return `${v.year}-${v.month}-${v.day}`;};
 const rial=n=>Number(n||0).toLocaleString('fa-IR')+' ریال';
 const normalizeNumber=value=>{const digits=String(value??'').replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));const cleaned=digits.replace(/[٬،,\s]/g,'').replace(/٫/g,'.');return Number(cleaned);};
 const assetTypes=['ملک','خودرو','طلا','ارز','سپرده بانکی','سهام','سایر'];
@@ -38,10 +39,11 @@ export default function App(){
  const [accountBank,setAccountBank]=useState(''),[accountName,setAccountName]=useState(''),[accountLast4,setAccountLast4]=useState(''),[accountBalance,setAccountBalance]=useState('');
  const [editRecord,setEditRecord]=useState(null),[editName,setEditName]=useState(''),[editType,setEditType]=useState(''),[editValue,setEditValue]=useState(''),[editExtra,setEditExtra]=useState(''),[editAccountId,setEditAccountId]=useState('');
  const [smsEnabled,setSmsEnabled]=useState(false),[smsSyncing,setSmsSyncing]=useState(false),[smsOldCount,setSmsOldCount]=useState(null);
- const [txAccount,setTxAccount]=useState(''),[txAmount,setTxAmount]=useState(''),[txType,setTxType]=useState('برداشت'),[txCategory,setTxCategory]=useState('خرید'),[txDate,setTxDate]=useState(new Date().toISOString().slice(0,10)),[smsText,setSmsText]=useState('');
- useEffect(()=>{AsyncStorage.getItem(STORE).then(v=>v&&setData({...initial,...JSON.parse(v)})).catch(()=>{});AsyncStorage.getItem('zhian.sms.enabled').then(v=>setSmsEnabled(v==='yes')).catch(()=>{});},[]);
- useEffect(()=>{AsyncStorage.setItem(STORE,JSON.stringify(data)).catch(()=>{});},[data]);
- useEffect(()=>{refreshMarket();const timer=setInterval(refreshMarket,30*60*1000);return ()=>clearInterval(timer);},[]);
+ const [txAccount,setTxAccount]=useState(''),[txAmount,setTxAmount]=useState(''),[txType,setTxType]=useState('برداشت'),[txCategory,setTxCategory]=useState('خرید'),[txDate,setTxDate]=useState(()=>tehranDate()),[smsText,setSmsText]=useState('');
+ useEffect(()=>{let active=true;(async()=>{try{const [saved,sms]=await Promise.all([AsyncStorage.getItem(STORE),AsyncStorage.getItem('zhian.sms.enabled')]);if(!active)return;if(saved){const parsed=JSON.parse(saved);setData({...initial,...parsed,prices:{...initial.prices,...(parsed.prices||{})},assets:Array.isArray(parsed.assets)?parsed.assets:[],loans:Array.isArray(parsed.loans)?parsed.loans:[],accounts:Array.isArray(parsed.accounts)?parsed.accounts:[],transactions:Array.isArray(parsed.transactions)?parsed.transactions:[],history:Array.isArray(parsed.history)?parsed.history:[]});}setSmsEnabled(sms==='yes');}catch(e){console.warn('Storage restore failed',e);}finally{if(active)setStorageLoaded(true);}})();return()=>{active=false;};},[]);
+ useEffect(()=>{if(storageLoaded)AsyncStorage.setItem(STORE,JSON.stringify(data)).catch(e=>console.warn('Storage save failed',e));},[data,storageLoaded]);
+ useEffect(()=>{const clock=setInterval(()=>setNow(new Date()),1000);return()=>clearInterval(clock);},[]);
+ useEffect(()=>{refreshMarket(true);const timer=setInterval(()=>refreshMarket(true),30*60*1000);return ()=>clearInterval(timer);},[]);
  const updatePrice=(k,v)=>setData(d=>({...d,prices:{...d.prices,[k]:v}}));
  async function searchCities(){
    const query=cityQuery.trim();
@@ -67,7 +69,7 @@ export default function App(){
    finally{setBusy(false);}
  }
 
- async function refreshMarket(){
+ async function refreshMarket(silent=false){
    setMarketBusy(true);
    try {
      const url='https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/latest.json';
@@ -113,8 +115,8 @@ export default function App(){
      const stamp=new Date(published);
      const time=Number.isNaN(stamp.getTime())?String(published):stamp.toLocaleString('fa-IR');
      setMarketInfo({time,source:'Iran Market Data',count:Object.keys(updates).length,url,stale:selected.some(x=>x.stale===true)});
-     Alert.alert('به‌روزرسانی قیمت‌ها',`${Object.keys(updates).length} نرخ از منبع رایگان دریافت شد. زمان انتشار: ${time}`);
-   } catch(e){Alert.alert('خطا در دریافت قیمت‌ها',e.message||'اتصال اینترنت را بررسی کنید.');}
+     if(!silent)Alert.alert('به‌روزرسانی قیمت‌ها',`${Object.keys(updates).length} نرخ از منبع رایگان دریافت شد. زمان انتشار: ${time}`);
+   } catch(e){if(!silent)Alert.alert('خطا در دریافت قیمت‌ها',e.message||'اتصال اینترنت را بررسی کنید.');}
    finally{setMarketBusy(false);}
  }
  function saveDay(){
@@ -165,7 +167,7 @@ export default function App(){
          const account=nextAccounts.find(a=>m.last4&&a.last4===m.last4)||(nextAccounts.length===1?nextAccounts[0]:null);
          const source=String(m.source||'پیامک خودکار');
          if(account&&source!=='پیامک قدیمی')nextAccounts=nextAccounts.map(a=>a.id===account.id?{...a,balance:Math.max(0,a.balance+(m.type==='واریز'?Number(m.amount):-Number(m.amount)))}:a);
-         return {id:String(m.id),accountId:account?.id??null,amount:Number(m.amount),type:m.type==='واریز'?'واریز':'برداشت',category:'تراکنش پیامکی',date:new Date(Number(m.timestamp)||Date.now()).toISOString().slice(0,10),source,sender:String(m.sender||'')};
+         return {id:String(m.id),accountId:account?.id??null,amount:Number(m.amount),type:m.type==='واریز'?'واریز':'برداشت',category:'تراکنش پیامکی',date:tehranDate(new Date(Number(m.timestamp)||Date.now())),source,sender:String(m.sender||'')};
        });
        return {...d,accounts:nextAccounts,transactions:[...(d.transactions||[]),...added]};
      });
@@ -286,7 +288,7 @@ export default function App(){
  return <SafeAreaView style={s.safe}><StatusBar style="dark"/><View style={s.header}>
    <Pressable onPress={()=>setShowMenu(!showMenu)} style={s.menuBtn}><Text style={s.menuText}>☰</Text></Pressable>
    <View style={s.headerMark}><Text style={s.headerEye}>◉</Text></View><View style={{flex:1}}><Text style={s.brand}>رصدگر ژیان</Text><Text style={s.date}>بازار • دارایی • زندگی | {today()}</Text></View>
-   <Text style={s.clock}>{new Date().toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'})}</Text>
+   <Text style={s.clock}>{now.toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit',second:'2-digit',timeZone:'Asia/Tehran'})}</Text>
  </View>
  {showMenu&&<View style={s.menu}><Text style={s.menuHeading}>بخش‌های رصدگر ژیان</Text><View style={s.menuGrid}>{menu.map(x=><Pressable key={x.name} onPress={()=>{setTab(x.name);setShowMenu(false);}} style={[s.menuTile,tab===x.name&&s.menuTileActive]}><Text style={s.menuIcon}>{x.icon}</Text><Text style={s.menuLabel}>{x.name}</Text><Text style={s.menuDesc}>{x.desc}</Text></Pressable>)}</View></View>}
  <ScrollView contentContainerStyle={s.body}>
