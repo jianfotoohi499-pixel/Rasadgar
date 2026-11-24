@@ -164,9 +164,9 @@ export default function App(){
        if(!fresh.length)return d;
        let nextAccounts=[...(d.accounts||[])];
        const added=fresh.map(m=>{
-         const account=nextAccounts.find(a=>m.last4&&a.last4===m.last4)||(nextAccounts.length===1?nextAccounts[0]:null);
+         const account=m.last4?nextAccounts.find(a=>a.last4===m.last4):(nextAccounts.length===1?nextAccounts[0]:null);
          const source=String(m.source||'پیامک خودکار');
-         if(account&&source!=='پیامک قدیمی')nextAccounts=nextAccounts.map(a=>a.id===account.id?{...a,balance:Math.max(0,a.balance+(m.type==='واریز'?Number(m.amount):-Number(m.amount)))}:a);
+         if(account&&source!=='پیامک قدیمی')nextAccounts=nextAccounts.map(a=>a.id===account.id?{...a,balance:a.balance+(m.type==='واریز'?Number(m.amount):-Number(m.amount))}:a);
          return {id:String(m.id),accountId:account?.id??null,amount:Number(m.amount),type:m.type==='واریز'?'واریز':'برداشت',category:'تراکنش پیامکی',date:tehranDate(new Date(Number(m.timestamp)||Date.now())),source,sender:String(m.sender||'')};
        });
        return {...d,accounts:nextAccounts,transactions:[...(d.transactions||[]),...added]};
@@ -177,7 +177,7 @@ export default function App(){
  useEffect(()=>{if(!smsEnabled)return;syncSmsTransactions();const timer=setInterval(syncSmsTransactions,12000);return()=>clearInterval(timer);},[smsEnabled]);
  function removeTransaction(t){
    const historical=String(t.source||'')==='پیامک قدیمی';
-   Alert.alert('حذف تراکنش',historical?'تراکنش قدیمی حذف شود؟ موجودی حساب تغییر نمی‌کند.':'تراکنش حذف و اثر آن بر موجودی برگردانده شود؟',[{text:'انصراف',style:'cancel'},{text:'حذف',style:'destructive',onPress:()=>setData(d=>({...d,transactions:(d.transactions||[]).filter(x=>x.id!==t.id),accounts:historical?(d.accounts||[]):(d.accounts||[]).map(a=>a.id!==t.accountId?a:{...a,balance:Math.max(0,a.balance+(t.type==='واریز'?-t.amount:t.amount))})}))}]);
+   Alert.alert('حذف تراکنش',historical?'تراکنش قدیمی حذف شود؟ موجودی حساب تغییر نمی‌کند.':'تراکنش حذف و اثر آن بر موجودی برگردانده شود؟',[{text:'انصراف',style:'cancel'},{text:'حذف',style:'destructive',onPress:()=>setData(d=>({...d,transactions:(d.transactions||[]).filter(x=>x.id!==t.id),accounts:historical?(d.accounts||[]):(d.accounts||[]).map(a=>a.id!==t.accountId?a:{...a,balance:a.balance+(t.type==='واریز'?-t.amount:t.amount)})}))}]);
  }
  function startEdit(kind,item){
    setEditRecord({kind,id:item.id,original:item});
@@ -199,7 +199,7 @@ export default function App(){
        const oldSigned=original.type==='واریز'?original.amount:-original.amount;
        const newSigned=editType==='واریز'?value:-value;
        const nextId=editAccountId?Number(editAccountId):null;
-       return {...d,transactions:(d.transactions||[]).map(x=>x.id===id?{...x,accountId:nextId,amount:value,type:editType,category:editName.trim(),date:editExtra.trim()}:x),accounts:(d.accounts||[]).map(a=>{if(String(original.source||'')==='پیامک قدیمی')return a;const delta=(a.id===original.accountId?-oldSigned:0)+(a.id===nextId?newSigned:0);return delta?{...a,balance:Math.max(0,a.balance+delta)}:a;})};
+       return {...d,transactions:(d.transactions||[]).map(x=>x.id===id?{...x,accountId:nextId,amount:value,type:editType,category:editName.trim(),date:editExtra.trim()}:x),accounts:(d.accounts||[]).map(a=>{if(String(original.source||'')==='پیامک قدیمی')return a;const delta=(a.id===original.accountId?-oldSigned:0)+(a.id===nextId?newSigned:0);return delta?{...a,balance:a.balance+delta}:a;})};
      }
      return d;
    });
@@ -208,16 +208,18 @@ export default function App(){
  function addTransaction(){
    const amount=normalizeNumber(txAmount);
    if(!txAccount||!Number.isFinite(amount)||amount<=0||!txDate.trim()){Alert.alert('اطلاعات تراکنش','حساب، مبلغ و تاریخ معتبر را انتخاب کنید.');return;}
-   setData(d=>({...d,accounts:(d.accounts||[]).map(a=>String(a.id)!==String(txAccount)?a:{...a,balance:Math.max(0,a.balance+(txType==='واریز'?amount:-amount))}),transactions:[...(d.transactions||[]),{id:Date.now(),accountId:Number(txAccount),amount,type:txType,category:txCategory,date:txDate,source:'دستی'}]}));
+   setData(d=>({...d,accounts:(d.accounts||[]).map(a=>String(a.id)!==String(txAccount)?a:{...a,balance:a.balance+(txType==='واریز'?amount:-amount)}),transactions:[...(d.transactions||[]),{id:Date.now(),accountId:Number(txAccount),amount,type:txType,category:txCategory,date:txDate,source:'دستی'}]}));
    setTxAmount('');setSmsText('');
  }
  function parsePastedSms(){
    const text=smsText.trim();if(!text){Alert.alert('متن پیامک','متن پیامک بانکی را جای‌گذاری کنید.');return;}
    const normalized=text.replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
-   const matches=normalized.match(/\d[\d,٬،.]*/g)||[];
-   const amounts=matches.map(x=>Number(x.replace(/[,٬،.]/g,''))).filter(x=>Number.isFinite(x)&&x>=1000);
-   if(!amounts.length){Alert.alert('مبلغ پیدا نشد','مبلغ تراکنش را دستی وارد کنید.');return;}
-   setTxAmount(String(amounts.sort((a,b)=>b-a)[0]));setTxType(/واریز|دریافت|بستانکار|واریزی/.test(text)?'واریز':'برداشت');
+   const patterns=[/(?:مبلغ تراکنش|مبلغ خرید|مبلغ)\D{0,12}([0-9][0-9,٬،.]*)/i,/(?:برداشت|واریز|خرید|انتقال|پرداخت|کسر)\D{0,8}([0-9][0-9,٬،.]*)/i,/([0-9][0-9,٬،.]*)\s*(?:ریال|تومان)/i];
+   let amount=null;
+   for(const pattern of patterns){const candidate=normalized.match(pattern)?.[1];if(!candidate)continue;const digits=candidate.replace(/[,٬،.]/g,'');if(digits.length>12)continue;const value=Number(digits);if(Number.isFinite(value)&&value>=1000){amount=value;break;}}
+   if(amount===null){Alert.alert('مبلغ پیدا نشد','مبلغ تراکنش را دستی وارد کنید؛ شماره کارت و تاریخ به‌عنوان مبلغ انتخاب نمی‌شوند.');return;}
+   if(/تومان/.test(text))amount*=10;
+   setTxAmount(String(amount));setTxType(/واریز|دریافت|بستانکار|واریزی/.test(text)?'واریز':'برداشت');
    const account=(data.accounts||[]).find(a=>a.last4&&normalized.includes(a.last4));if(account)setTxAccount(String(account.id));
    Alert.alert('اطلاعات استخراج شد','مبلغ و نوع تراکنش پیشنهاد شد؛ پیش از ثبت آن را بررسی کنید.');
  }
