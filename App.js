@@ -17,7 +17,7 @@ const assetTypes=['ملک','خودرو','طلا','ارز','سپرده بانکی
 const initial={city:'تهران',prices:{'دلار آزاد':'','طلای ۱۸ عیار (گرم)':'','ربع سکه':'','نیم سکه':'','تمام سکه':'','نفت برنت (ریال/بشکه)':'','نفت WTI (ریال/بشکه)':''},assets:[],loans:[],history:[]};
 
 function Card({title,children,color=BLUE}){return <View style={s.card}><Text style={[s.cardTitle,{color}]}>{title}</Text>{children}</View>}
-function Field({label,value,onChange,placeholder='مقدار را وارد کنید'}){return <View style={s.field}><Text style={s.label}>{label}</Text><TextInput value={String(value??'')} onChangeText={onChange} keyboardType="decimal-pad" placeholder={placeholder} placeholderTextColor="#888" style={s.input}/></View>}
+function Field({label,value,onChange,placeholder='مقدار را وارد کنید',keyboardType='decimal-pad'}){return <View style={s.field}><Text style={s.label}>{label}</Text><TextInput value={String(value??'')} onChangeText={onChange} keyboardType={keyboardType} placeholder={placeholder} placeholderTextColor="#888" style={s.input}/></View>}
 function MiniChart({values}) {
  const vals=values.map(x=>Number(x)||0).filter(x=>x>0);
  if(vals.length<2) return <Text style={s.muted}>برای نمایش روند، حداقل دو روز داده ذخیره کنید.</Text>;
@@ -148,6 +148,7 @@ export default function App(){
      const rows=data.history.map(h=>({تاریخ:h.date,ساعت:h.time,شهر:h.weather?.name||data.city,دما:h.weather?.temp??'',AQI:h.weather?.aqi??'',دلار_ریال:h.prices?.['دلار آزاد']||'',طلای_۱۸_عیار_ریال:h.prices?.['طلای ۱۸ عیار (گرم)']||'',ربع_سکه:h.prices?.['ربع سکه']||'',نیم_سکه:h.prices?.['نیم سکه']||'',تمام_سکه:h.prices?.['تمام سکه']||'',نفت_برنت_ریال:h.prices?.['نفت برنت (ریال/بشکه)']||'',نفت_WTI_ریال:h.prices?.['نفت WTI (ریال/بشکه)']||''}));
      const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'تاریخچه');
      XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(data.assets.map(a=>({دارایی:a.name,ارزش_ریالی:a.value}))), 'دارایی‌ها');
+     XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet((data.loans||[]).flatMap(l=>(l.installments||[]).map(i=>({وام:l.name,اصل_وام_ریال:l.principal,شماره_قسط:i.number,مبلغ_قسط_ریال:i.amount,تاریخ_سررسید:i.dueDate,وضعیت:i.paid?'پرداخت‌شده':'پرداخت‌نشده'})))), 'وام‌ها و اقساط');
      const out=XLSX.write(wb,{type:'base64',bookType:'xlsx'}); const uri=FileSystem.documentDirectory+'rasadgar-zhian.xlsx';
      await FileSystem.writeAsStringAsync(uri,out,{encoding:FileSystem.EncodingType.Base64});
      if(await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri,{mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',dialogTitle:'خروجی اکسل رصد گر ژیان'});
@@ -236,7 +237,7 @@ export default function App(){
    <Field label="مبلغ کل وام (ریال)" value={loanAmount} onChange={setLoanAmount}/>
    <Field label="مبلغ هر قسط (ریال)" value={installmentAmount} onChange={setInstallmentAmount}/>
    <Field label="تعداد کل اقساط" value={installmentCount} onChange={setInstallmentCount}/>
-   <Field label="تاریخ اولین سررسید (میلادی YYYY/MM/DD)" value={firstDueDate} onChange={setFirstDueDate} placeholder="2026/12/05"/>
+   <Field label="تاریخ اولین سررسید (میلادی YYYY/MM/DD)" value={firstDueDate} onChange={setFirstDueDate} placeholder="2026/12/05" keyboardType="default"/>
    <Pressable style={s.primary} onPress={addLoan}><Text style={s.primaryText}>ثبت و ساخت برنامه اقساط</Text></Pressable>
    <Text style={s.label}>اصل وام‌های ثبت‌شده: {rial(totalLoanPrincipal)}</Text><Text style={s.label}>تعداد اقساط باقی‌مانده: {unpaidInstallments.length.toLocaleString('fa-IR')}</Text><Text style={s.total}>مبلغ اقساط باقی‌مانده: {rial(remainingDebt)}</Text>
    {loans.length===0&&<Text style={s.muted}>هنوز وامی ثبت نشده است.</Text>}
