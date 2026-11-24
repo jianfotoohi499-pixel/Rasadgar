@@ -36,7 +36,7 @@ export default function App(){
  const [assetName,setAssetName]=useState(''),[assetValue,setAssetValue]=useState(''),[assetType,setAssetType]=useState('ملک');
  const [loanName,setLoanName]=useState(''),[loanAmount,setLoanAmount]=useState(''),[installmentAmount,setInstallmentAmount]=useState(''),[installmentCount,setInstallmentCount]=useState(''),[firstDueDate,setFirstDueDate]=useState('');
  const [accountBank,setAccountBank]=useState(''),[accountName,setAccountName]=useState(''),[accountLast4,setAccountLast4]=useState(''),[accountBalance,setAccountBalance]=useState('');
- const [editRecord,setEditRecord]=useState(null),[editName,setEditName]=useState(''),[editType,setEditType]=useState(''),[editValue,setEditValue]=useState(''),[editExtra,setEditExtra]=useState('');
+ const [editRecord,setEditRecord]=useState(null),[editName,setEditName]=useState(''),[editType,setEditType]=useState(''),[editValue,setEditValue]=useState(''),[editExtra,setEditExtra]=useState(''),[editAccountId,setEditAccountId]=useState('');
  const [smsEnabled,setSmsEnabled]=useState(false),[smsSyncing,setSmsSyncing]=useState(false);
  const [txAccount,setTxAccount]=useState(''),[txAmount,setTxAmount]=useState(''),[txType,setTxType]=useState('برداشت'),[txCategory,setTxCategory]=useState('خرید'),[txDate,setTxDate]=useState(new Date().toISOString().slice(0,10)),[smsText,setSmsText]=useState('');
  useEffect(()=>{AsyncStorage.getItem(STORE).then(v=>v&&setData({...initial,...JSON.parse(v)})).catch(()=>{});AsyncStorage.getItem('zhian.sms.enabled').then(v=>setSmsEnabled(v==='yes')).catch(()=>{});},[]);
@@ -173,8 +173,9 @@ export default function App(){
    setEditType(kind==='asset'?item.type:kind==='transaction'?item.type:'');
    setEditValue(String(kind==='asset'?item.value:kind==='account'?item.balance:item.amount));
    setEditExtra(kind==='account'?item.bank:kind==='transaction'?item.date:item.last4||'');
+   setEditAccountId(String(item.accountId??''));
  }
- function cancelEdit(){setEditRecord(null);setEditName('');setEditType('');setEditValue('');setEditExtra('');}
+ function cancelEdit(){setEditRecord(null);setEditName('');setEditType('');setEditValue('');setEditExtra('');setEditAccountId('');}
  function saveEdit(){
    if(!editRecord)return;
    const value=normalizeNumber(editValue),{kind,id,original}=editRecord;
@@ -183,8 +184,10 @@ export default function App(){
      if(kind==='asset')return {...d,assets:d.assets.map(x=>x.id===id?{...x,name:editName.trim(),type:editType,value}:x)};
      if(kind==='account')return {...d,accounts:(d.accounts||[]).map(x=>x.id===id?{...x,name:editName.trim(),bank:editExtra.trim(),balance:value,last4:x.last4}:x)};
      if(kind==='transaction'){
-       const delta=(editType==='واریز'?value:-value)-(original.type==='واریز'?original.amount:-original.amount);
-       return {...d,transactions:(d.transactions||[]).map(x=>x.id===id?{...x,amount:value,type:editType,category:editName.trim(),date:editExtra.trim()}:x),accounts:(d.accounts||[]).map(a=>a.id===original.accountId?{...a,balance:Math.max(0,a.balance+delta)}:a)};
+       const oldSigned=original.type==='واریز'?original.amount:-original.amount;
+       const newSigned=editType==='واریز'?value:-value;
+       const nextId=editAccountId?Number(editAccountId):null;
+       return {...d,transactions:(d.transactions||[]).map(x=>x.id===id?{...x,accountId:nextId,amount:value,type:editType,category:editName.trim(),date:editExtra.trim()}:x),accounts:(d.accounts||[]).map(a=>{const delta=(a.id===original.accountId?-oldSigned:0)+(a.id===nextId?newSigned:0);return delta?{...a,balance:Math.max(0,a.balance+delta)}:a;})};
      }
      return d;
    });
@@ -277,7 +280,7 @@ export default function App(){
  </View>
  {showMenu&&<View style={s.menu}><Text style={s.menuHeading}>بخش‌های رصدگر ژیان</Text><View style={s.menuGrid}>{menu.map(x=><Pressable key={x.name} onPress={()=>{setTab(x.name);setShowMenu(false);}} style={[s.menuTile,tab===x.name&&s.menuTileActive]}><Text style={s.menuIcon}>{x.icon}</Text><Text style={s.menuLabel}>{x.name}</Text><Text style={s.menuDesc}>{x.desc}</Text></Pressable>)}</View></View>}
  <ScrollView contentContainerStyle={s.body}>
- {editRecord&&<Card title="ویرایش اطلاعات" color={YELLOW} icon="✏️"><Field label="عنوان" value={editName} onChange={setEditName}/>{editRecord.kind==='asset'&&<Field label="نوع دارایی" value={editType} onChange={setEditType}/>}{editRecord.kind==='transaction'&&<><Field label="نوع تراکنش: واریز یا برداشت" value={editType} onChange={setEditType}/><Field label="تاریخ" value={editExtra} onChange={setEditExtra} keyboardType="default"/></>}{editRecord.kind==='account'&&<Field label="نام بانک" value={editExtra} onChange={setEditExtra}/>}<Field label="مبلغ ریالی" value={editValue} onChange={setEditValue}/><View style={s.row}><Pressable style={[s.primary,{flex:1}]} onPress={saveEdit}><Text style={s.primaryText}>ذخیره ویرایش</Text></Pressable><Pressable style={[s.outline,{flex:1}]} onPress={cancelEdit}><Text style={s.outlineText}>انصراف</Text></Pressable></View></Card>}
+ {editRecord&&<Card title="ویرایش اطلاعات" color={YELLOW} icon="✏️"><Field label="عنوان" value={editName} onChange={setEditName}/>{editRecord.kind==='asset'&&<Field label="نوع دارایی" value={editType} onChange={setEditType}/>}{editRecord.kind==='transaction'&&<><Field label="نوع تراکنش: واریز یا برداشت" value={editType} onChange={setEditType}/><Field label="تاریخ" value={editExtra} onChange={setEditExtra} keyboardType="default"/><Text style={s.label}>اتصال به حساب بانکی</Text>{accounts.map(a=><Pressable key={a.id} onPress={()=>setEditAccountId(String(a.id))} style={[s.choice,{backgroundColor:editAccountId===String(a.id)?'#dceaff':'#f4f6f9'}]}><Text style={s.label}>{editAccountId===String(a.id)?'✓ ':''}{a.bank} — {a.name}</Text></Pressable>)}</>}{editRecord.kind==='account'&&<Field label="نام بانک" value={editExtra} onChange={setEditExtra}/>}<Field label="مبلغ ریالی" value={editValue} onChange={setEditValue}/><View style={s.row}><Pressable style={[s.primary,{flex:1}]} onPress={saveEdit}><Text style={s.primaryText}>ذخیره ویرایش</Text></Pressable><Pressable style={[s.outline,{flex:1}]} onPress={cancelEdit}><Text style={s.outlineText}>انصراف</Text></Pressable></View></Card>}
  {tab==='خانه'&&<>
   <Card title="آب‌وهوا و کیفیت هوا" color={BLUE} icon="🌤️">
    <View style={s.row}><TextInput value={cityQuery} onChangeText={v=>{setCityQuery(v);setCityResults([]);}} placeholder={`نام شهر (فعلی: ${data.city})`} style={[s.input,{flex:1}]}/><Pressable style={s.smallBtn} onPress={searchCities}><Text style={s.btnText}>یافتن شهر</Text></Pressable></View>
