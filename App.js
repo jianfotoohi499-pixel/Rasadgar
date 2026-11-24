@@ -174,7 +174,8 @@ export default function App(){
  }
  useEffect(()=>{if(!smsEnabled)return;syncSmsTransactions();const timer=setInterval(syncSmsTransactions,12000);return()=>clearInterval(timer);},[smsEnabled]);
  function removeTransaction(t){
-   Alert.alert('حذف تراکنش','تراکنش حذف و اثر آن بر موجودی برگردانده شود؟',[{text:'انصراف',style:'cancel'},{text:'حذف',style:'destructive',onPress:()=>setData(d=>({...d,transactions:(d.transactions||[]).filter(x=>x.id!==t.id),accounts:(d.accounts||[]).map(a=>a.id!==t.accountId?a:{...a,balance:Math.max(0,a.balance+(t.type==='واریز'?-t.amount:t.amount))})}))}]);
+   const historical=String(t.source||'')==='پیامک قدیمی';
+   Alert.alert('حذف تراکنش',historical?'تراکنش قدیمی حذف شود؟ موجودی حساب تغییر نمی‌کند.':'تراکنش حذف و اثر آن بر موجودی برگردانده شود؟',[{text:'انصراف',style:'cancel'},{text:'حذف',style:'destructive',onPress:()=>setData(d=>({...d,transactions:(d.transactions||[]).filter(x=>x.id!==t.id),accounts:historical?(d.accounts||[]):(d.accounts||[]).map(a=>a.id!==t.accountId?a:{...a,balance:Math.max(0,a.balance+(t.type==='واریز'?-t.amount:t.amount))})}))}]);
  }
  function startEdit(kind,item){
    setEditRecord({kind,id:item.id,original:item});
@@ -196,7 +197,7 @@ export default function App(){
        const oldSigned=original.type==='واریز'?original.amount:-original.amount;
        const newSigned=editType==='واریز'?value:-value;
        const nextId=editAccountId?Number(editAccountId):null;
-       return {...d,transactions:(d.transactions||[]).map(x=>x.id===id?{...x,accountId:nextId,amount:value,type:editType,category:editName.trim(),date:editExtra.trim()}:x),accounts:(d.accounts||[]).map(a=>{const delta=(a.id===original.accountId?-oldSigned:0)+(a.id===nextId?newSigned:0);return delta?{...a,balance:Math.max(0,a.balance+delta)}:a;})};
+       return {...d,transactions:(d.transactions||[]).map(x=>x.id===id?{...x,accountId:nextId,amount:value,type:editType,category:editName.trim(),date:editExtra.trim()}:x),accounts:(d.accounts||[]).map(a=>{if(String(original.source||'')==='پیامک قدیمی')return a;const delta=(a.id===original.accountId?-oldSigned:0)+(a.id===nextId?newSigned:0);return delta?{...a,balance:Math.max(0,a.balance+delta)}:a;})};
      }
      return d;
    });
