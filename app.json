@@ -17,6 +17,9 @@
     "extra": {
       "description": "داشبورد شخصی بازار، دارایی، آب‌وهوا و تقویم"
     },
-    "icon": "./assets/rasadgar-icon.png"
+    "icon": "./assets/rasadgar-icon.png",
+    "autolinking": {
+      "nativeModulesDir": "./modules"
+    }
   }
 }
