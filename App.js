@@ -37,7 +37,7 @@ export default function App(){
  const [loanName,setLoanName]=useState(''),[loanAmount,setLoanAmount]=useState(''),[installmentAmount,setInstallmentAmount]=useState(''),[installmentCount,setInstallmentCount]=useState(''),[firstDueDate,setFirstDueDate]=useState('');
  const [accountBank,setAccountBank]=useState(''),[accountName,setAccountName]=useState(''),[accountLast4,setAccountLast4]=useState(''),[accountBalance,setAccountBalance]=useState('');
  const [editRecord,setEditRecord]=useState(null),[editName,setEditName]=useState(''),[editType,setEditType]=useState(''),[editValue,setEditValue]=useState(''),[editExtra,setEditExtra]=useState(''),[editAccountId,setEditAccountId]=useState('');
- const [smsEnabled,setSmsEnabled]=useState(false),[smsSyncing,setSmsSyncing]=useState(false);
+ const [smsEnabled,setSmsEnabled]=useState(false),[smsSyncing,setSmsSyncing]=useState(false),[smsOldCount,setSmsOldCount]=useState(null);
  const [txAccount,setTxAccount]=useState(''),[txAmount,setTxAmount]=useState(''),[txType,setTxType]=useState('برداشت'),[txCategory,setTxCategory]=useState('خرید'),[txDate,setTxDate]=useState(new Date().toISOString().slice(0,10)),[smsText,setSmsText]=useState('');
  useEffect(()=>{AsyncStorage.getItem(STORE).then(v=>v&&setData({...initial,...JSON.parse(v)})).catch(()=>{});AsyncStorage.getItem('zhian.sms.enabled').then(v=>setSmsEnabled(v==='yes')).catch(()=>{});},[]);
  useEffect(()=>{AsyncStorage.setItem(STORE,JSON.stringify(data)).catch(()=>{});},[data]);
@@ -137,10 +137,18 @@ export default function App(){
  async function requestSmsAccess(){
    if(Platform.OS!=='android'){Alert.alert('عدم پشتیبانی','خواندن خودکار پیامک فقط در نسخه اندروید پشتیبانی می‌شود.');return;}
    try{
-     const result=await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECEIVE_SMS,{title:'اجازه دریافت پیامک تراکنش',message:'رصدگر ژیان فقط پیامک‌های شناسایی‌شده به‌عنوان تراکنش بانکی را روی همین گوشی پردازش می‌کند. پیامک‌های شخصی و رمزهای یک‌بارمصرف ذخیره نمی‌شوند.',buttonPositive:'اجازه می‌دهم',buttonNegative:'انصراف'});
-     if(result===PermissionsAndroid.RESULTS.GRANTED){setSmsEnabled(true);await AsyncStorage.setItem('zhian.sms.enabled','yes');await syncSmsTransactions();Alert.alert('فعال شد','دریافت پیامک تراکنش فعال شد.');}
-     else Alert.alert('مجوز داده نشد','بدون مجوز دریافت پیامک، ثبت خودکار تراکنش انجام نمی‌شود.');
+     const receive=await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECEIVE_SMS,{title:'اجازه دریافت پیامک جدید',message:'برای ثبت خودکار تراکنش‌های بانکی جدید لازم است.',buttonPositive:'اجازه می‌دهم',buttonNegative:'انصراف'});
+     if(receive!==PermissionsAndroid.RESULTS.GRANTED){Alert.alert('مجوز داده نشد','برای پیامک‌های جدید، مجوز دریافت لازم است.');return;}
+     const read=await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.READ_SMS,{title:'اجازه بررسی پیامک‌های قبلی',message:'برای یک‌بار بررسی صندوق پیامک و استخراج فقط تراکنش‌های بانکی، دسترسی خواندن پیامک لازم است. متن پیامک‌ها در برنامه ذخیره نمی‌شود.',buttonPositive:'اجازه می‌دهم',buttonNegative:'انصراف'});
+     if(read!==PermissionsAndroid.RESULTS.GRANTED){Alert.alert('مجوز خواندن پیامک داده نشد','پیامک‌های قبلی بررسی نمی‌شوند. دریافت پیامک‌های جدید همچنان قابل فعال‌سازی است.');setSmsEnabled(true);await AsyncStorage.setItem('zhian.sms.enabled','yes');return;}
+     setSmsEnabled(true);await AsyncStorage.setItem('zhian.sms.enabled','yes');
+     const count=await TransactionSms.scanInbox(10000);setSmsOldCount(count);await syncSmsTransactions();
+     Alert.alert('بررسی پیامک‌ها انجام شد',`تعداد ${count} پیامک دارای الگوی تراکنش شناسایی شد. موارد تکراری حذف می‌شوند؛ پیامک‌های شخصی و رمزهای یک‌بارمصرف وارد حساب نمی‌شوند.`);
    }catch(e){Alert.alert('خطا در مجوز پیامک',String(e));}
+ }
+ async function scanOldSms(){
+   if(Platform.OS!=='android')return;
+   try{const granted=await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_SMS);if(!granted){Alert.alert('مجوز لازم است','ابتدا مجوز خواندن پیامک را فعال کنید.');return;}setSmsSyncing(true);const count=await TransactionSms.scanInbox(10000);setSmsOldCount(count);await syncSmsTransactions();Alert.alert('اسکن تمام شد',`${count} پیامک دارای الگوی تراکنش شناسایی شد.`);}catch(e){Alert.alert('خطا در اسکن پیامک‌ها',String(e));}finally{setSmsSyncing(false);}
  }
  async function syncSmsTransactions(){
    if(Platform.OS!=='android')return;
@@ -357,8 +365,9 @@ export default function App(){
   </Card>
   <Card title="ثبت خودکار پیامک‌های تراکنش" color={YELLOW} icon="✉️">
    <Text style={s.muted}>پس از فعال‌سازی، پیامک‌های ورودی از هر فرستنده فقط در صورت داشتن نشانه‌های تراکنش بانکی و مبلغ پردازش می‌شوند. متن کامل پیامک ذخیره نمی‌شود و رمزهای پویا و کدهای ورود کنار گذاشته می‌شوند.</Text>
-   <View style={s.row}><Pressable style={[s.primary,{flex:1,backgroundColor:smsEnabled?GREEN:BLUE}]} onPress={requestSmsAccess}><Text style={s.primaryText}>{smsEnabled?'مجوز پیامک فعال است':'فعال‌سازی دریافت خودکار پیامک'}</Text></Pressable><Pressable style={s.outline} onPress={syncSmsTransactions}><Text style={s.outlineText}>{smsSyncing?'در حال بررسی…':'بررسی پیامک‌ها'}</Text></Pressable></View>
+   <View style={s.row}><Pressable style={[s.primary,{flex:1,backgroundColor:smsEnabled?GREEN:BLUE}]} onPress={requestSmsAccess}><Text style={s.primaryText}>{smsEnabled?'مجوز پیامک فعال است':'فعال‌سازی دریافت خودکار پیامک'}</Text></Pressable><Pressable style={s.outline} onPress={scanOldSms}><Text style={s.outlineText}>{smsSyncing?'در حال بررسی…':'اسکن پیامک‌های قدیمی'}</Text></Pressable></View>
    <Text style={s.muted}>وضعیت: {smsEnabled?'فعال':'غیرفعال'} | ذخیره فقط روی همین گوشی</Text>
+   {smsOldCount!==null&&<Text style={s.muted}>آخرین اسکن: {smsOldCount} پیامک تراکنشی شناسایی شد.</Text>}
    <TextInput multiline value={smsText} onChangeText={setSmsText} placeholder="متن پیامک بانکی را جای‌گذاری کنید" style={[s.input,{minHeight:100,textAlignVertical:'top'}]}/>
    <Pressable style={s.outline} onPress={parsePastedSms}><Text style={s.outlineText}>استخراج مبلغ و نوع تراکنش</Text></Pressable>
   </Card>
