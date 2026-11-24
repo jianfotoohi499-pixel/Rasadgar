@@ -18,7 +18,8 @@ class TransactionSmsReceiver : BroadcastReceiver() {
     if (!isTransaction(body)) return
 
     val normalized = normalizeDigits(body)
-    val amount = extractAmount(normalized) ?: return
+    val rawAmount = extractAmount(normalized) ?: return
+    val amount = if (body.contains("تومان")) rawAmount * 10L else rawAmount
     val direction = if (Regex("واریز|واریزی|دریافت|بستانکار|افزایش موجودی").containsMatchIn(body)) "واریز" else "برداشت"
     val card = Regex("(?:کارت|card)?\\D*(\\d{16})").find(normalized)?.groupValues?.getOrNull(1)
     val last4 = card?.takeLast(4).orEmpty()
