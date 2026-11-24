@@ -46,14 +46,14 @@ export default function App(){
  }
  async function loadWeather(city=data.city,coordinates=null){
    setBusy(true); try {
-     const geo=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=fa&format=json`).then(r=>r.json());
-     if(!geo.results?.length) throw new Error('شهر پیدا نشد');
-     const g=geo.results[0];
+     const g=coordinates||(await fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(city)+'&count=1&language=fa&format=json').then(r=>r.json())).results?.[0];
+     if(!g) throw new Error('شهر پیدا نشد');
      const [w,a]=await Promise.all([
-       fetch(`https://api.open-meteo.com/v1/forecast?latitude=${g.latitude}&longitude=${g.longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto`).then(r=>r.json()),
+       fetch(`https://api.open-meteo.com/v1/forecast?latitude=${g.latitude}&longitude=${g.longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&forecast_days=2&timezone=auto`).then(r=>r.json()),
        fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${g.latitude}&longitude=${g.longitude}&current=us_aqi,pm2_5,pm10&timezone=auto`).then(r=>r.json())
      ]);
-     setWeather({name:g.name,temp:w.current?.temperature_2m,feels:w.current?.apparent_temperature,humidity:w.current?.relative_humidity_2m,wind:w.current?.wind_speed_10m,aqi:a.current?.us_aqi,pm25:a.current?.pm2_5,pm10:a.current?.pm10,updated:new Date().toLocaleTimeString('fa-IR')});
+     setWeather({name:g.name,temp:w.current?.temperature_2m,feels:w.current?.apparent_temperature,humidity:w.current?.relative_humidity_2m,wind:w.current?.wind_speed_10m,aqi:a.current?.us_aqi,pm25:a.current?.pm2_5,pm10:a.current?.pm10,today:{date:w.daily?.time?.[0],max:w.daily?.temperature_2m_max?.[0],min:w.daily?.temperature_2m_min?.[0],code:w.daily?.weather_code?.[0],rain:w.daily?.precipitation_probability_max?.[0]},tomorrow:{date:w.daily?.time?.[1],max:w.daily?.temperature_2m_max?.[1],min:w.daily?.temperature_2m_min?.[1],code:w.daily?.weather_code?.[1],rain:w.daily?.precipitation_probability_max?.[1]},updated:new Date().toLocaleTimeString('fa-IR')});
+     setCityResults([]);setCityQuery(g.name);
      setData(d=>({...d,city:g.name}));
    } catch(e){Alert.alert('دریافت اطلاعات ناموفق بود',e.message||'اتصال اینترنت یا منبع داده را بررسی کنید.');}
    finally{setBusy(false);}
