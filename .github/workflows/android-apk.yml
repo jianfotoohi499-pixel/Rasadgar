@@ -2,7 +2,7 @@ name: Build Rasadgar Android Release APK
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/didban-location-map]
   workflow_dispatch:
 
 permissions:
