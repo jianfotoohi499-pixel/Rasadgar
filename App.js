@@ -9,6 +9,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as XLSX from 'xlsx';
 import {requireNativeModule} from 'expo-modules-core';
 const TransactionSms=requireNativeModule('TransactionSms');
+import LocationScreen from './LocationScreen';
 
 const BLUE='#1556a3', RED='#c62828', GREEN='#16834a', YELLOW='#e6b800', INK='#171717', PAPER='#f7f4ec';
 const STORE='zhian.v1';
@@ -287,10 +288,10 @@ export default function App(){
  const unpaidInstallments=loans.flatMap(l=>l.installments||[]).filter(i=>!i.paid);
  const remainingDebt=unpaidInstallments.reduce((sum,i)=>sum+(Number(i.amount)||0),0);
  const netAssets=totalAssets-remainingDebt;
- const menu=[{name:'خانه',icon:'🏠',desc:'نمای کلی و وضعیت امروز'},{name:'قیمت‌ها',icon:'📈',desc:'دلار، طلا، سکه و نفت'},{name:'دارایی‌های من',icon:'💎',desc:'ثبت و ویرایش اموال'},{name:'حساب‌ها و تراکنش‌ها',icon:'🏦',desc:'موجودی و گردش حساب'},{name:'وام‌ها و اقساط',icon:'🗓️',desc:'سررسیدها و پرداخت‌ها'},{name:'گزارش مالی',icon:'📊',desc:'جمع دارایی و بدهی'},{name:'روند تاریخی',icon:'📉',desc:'نمودار و سوابق'},{name:'راهنما',icon:'🧭',desc:'آموزش و تنظیمات'}];
+ const menu=[{name:'خانه',icon:'🏠',desc:'نمای کلی و وضعیت امروز'},{name:'قیمت‌ها',icon:'📈',desc:'دلار، طلا، سکه و نفت'},{name:'دارایی‌های من',icon:'💎',desc:'ثبت و ویرایش اموال'},{name:'حساب‌ها و تراکنش‌ها',icon:'🏦',desc:'موجودی و گردش حساب'},{name:'وام‌ها و اقساط',icon:'🗓️',desc:'سررسیدها و پرداخت‌ها'},{name:'گزارش مالی',icon:'📊',desc:'جمع دارایی و بدهی'},{name:'روند تاریخی',icon:'📉',desc:'نمودار و سوابق'},{name:'موقعیت و نقشه',icon:'📍',desc:'GPS، مختصات و کروکی'},{name:'راهنما',icon:'🧭',desc:'آموزش و تنظیمات'}];
  return <SafeAreaView style={s.safe}><StatusBar style="dark"/><View style={s.header}>
    <Pressable onPress={()=>setShowMenu(!showMenu)} style={s.menuBtn}><Text style={s.menuText}>☰</Text></Pressable>
-   <View style={s.headerMark}><Text style={s.headerEye}>◉</Text></View><View style={{flex:1}}><Text style={s.brand}>رصدگر ژیان</Text><Text style={s.date}>بازار • دارایی • زندگی | {today()}</Text></View>
+   <View style={s.headerMark}><Text style={s.headerEye}>◉</Text></View><View style={{flex:1}}><Text style={s.brand}>دیدبان ژیان</Text><Text style={s.date}>بازار • دارایی • زندگی | {today()}</Text></View>
    <Text style={s.clock}>{now.toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit',second:'2-digit',timeZone:'Asia/Tehran'})}</Text>
  </View>
  {showMenu&&<View style={s.menu}><Text style={s.menuHeading}>بخش‌های رصدگر ژیان</Text><View style={s.menuGrid}>{menu.map(x=><Pressable key={x.name} onPress={()=>{setTab(x.name);setShowMenu(false);}} style={[s.menuTile,tab===x.name&&s.menuTileActive]}><Text style={s.menuIcon}>{x.icon}</Text><Text style={s.menuLabel}>{x.name}</Text><Text style={s.menuDesc}>{x.desc}</Text></Pressable>)}</View></View>}
@@ -413,6 +414,7 @@ export default function App(){
    {data.history.slice().reverse().map((h,i)=><View key={i} style={s.priceRow}><Text style={s.label}>{h.date}، {h.time}</Text><Text style={s.value}>{h.prices?.['دلار آزاد']?rial(h.prices['دلار آزاد']):'—'}</Text></View>)}
    <Pressable style={s.outline} onPress={saveDay}><Text style={s.outlineText}>ثبت رکورد جدید امروز</Text></Pressable>
   </Card>}
+ {tab==='موقعیت و نقشه'&&<LocationScreen/>}
  {tab==='راهنما'&&<Card title="راهنمای استفاده" color={YELLOW}>
    <Text style={s.help}>۱. شهر را جستجو کنید؛ تهران به‌صورت پیش‌فرض انتخاب شده است.</Text>
    <Text style={s.help}>۲. در بخش قیمت‌ها «دریافت خودکار» را بزنید؛ در صورت نیاز می‌توانید نرخ‌ها را دستی اصلاح کنید. نفت نیز به ریال/بشکه نمایش داده می‌شود.</Text>
