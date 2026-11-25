@@ -1,8 +1,8 @@
-name: Build Rasadgar Android Release APK
+name: Build Didban Zhian Android Release APK
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/didban-location-map]
   workflow_dispatch:
 
 permissions:
@@ -47,10 +47,13 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
 
+      - name: Prepare clearly named APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/Didban-Zhian.apk
+
       - name: Upload APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: rasadgar-zhian-release-apk
-          path: android/app/build/outputs/apk/release/app-release.apk
+          name: didban-zhian-android-apk
+          path: android/app/build/outputs/apk/release/Didban-Zhian.apk
           if-no-files-found: error
           retention-days: 14
