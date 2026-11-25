@@ -2,13 +2,13 @@
   "expo": {
     "name": "دیدبان ژیان",
     "slug": "didban-zhian",
-    "version": "1.4.0",
+    "version": "1.4.1",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "android": {
-      "package": "ir.zhian.rasadgar",
-      "versionCode": 5,
+      "package": "ir.zhian.didban",
+      "versionCode": 6,
       "adaptiveIcon": {
         "foregroundImage": "./assets/rasadgar-icon.png",
         "backgroundColor": "#06132e"
