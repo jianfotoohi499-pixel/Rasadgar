@@ -1,5 +1,6 @@
 import React, {useEffect, useMemo, useState} from 'react';
-import {SafeAreaView, ScrollView, View, Text, TextInput, Pressable, StyleSheet, Alert, ActivityIndicator, PermissionsAndroid, Platform} from 'react-native';
+import {SafeAreaView, ScrollView, View, Text, TextInput, Pressable, StyleSheet, Alert, ActivityIndicator, PermissionsAndroid, Platform, useWindowDimensions} from 'react-native';
+import MapView, {Marker, UrlTile} from 'react-native-maps';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, {Path, Line, Circle, Text as SvgText} from 'react-native-svg';
 import {StatusBar} from 'expo-status-bar';
@@ -33,6 +34,7 @@ function MiniChart({values}) {
  return <Svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`}><Line x1="10" y1={h-12} x2={w-10} y2={h-12} stroke="#42658a"/><Path d={d} stroke={GREEN} strokeWidth="3" fill="none"/>{pts.map((pt,i)=><Circle key={i} cx={pt[0]} cy={pt[1]} r="3.5" fill={RED}/>)}</Svg>;
 }
 export default function App(){
+ const {width:screenWidth}=useWindowDimensions();
  const [data,setData]=useState(initial),[weather,setWeather]=useState(null),[busy,setBusy]=useState(false);
  const [now,setNow]=useState(()=>new Date()),[storageLoaded,setStorageLoaded]=useState(false);
  const [marketBusy,setMarketBusy]=useState(false),[marketInfo,setMarketInfo]=useState(null);
@@ -303,40 +305,59 @@ export default function App(){
  <ScrollView contentContainerStyle={s.body}>
  {editRecord&&<Card title="ویرایش اطلاعات" color={YELLOW} icon="✏️"><Field label="عنوان" value={editName} onChange={setEditName}/>{editRecord.kind==='asset'&&<Field label="نوع دارایی" value={editType} onChange={setEditType}/>}{editRecord.kind==='transaction'&&<><Field label="نوع تراکنش: واریز یا برداشت" value={editType} onChange={setEditType}/><Field label="تاریخ" value={editExtra} onChange={setEditExtra} keyboardType="default"/><Text style={s.label}>اتصال به حساب بانکی</Text>{accounts.map(a=><Pressable key={a.id} onPress={()=>setEditAccountId(String(a.id))} style={[s.choice,{backgroundColor:editAccountId===String(a.id)?'#0b477c':'#061d3b'}]}><Text style={s.label}>{editAccountId===String(a.id)?'✓ ':''}{a.bank} — {a.name}</Text></Pressable>)}</>}{editRecord.kind==='account'&&<Field label="نام بانک" value={editExtra} onChange={setEditExtra}/>}<Field label="مبلغ ریالی" value={editValue} onChange={setEditValue}/><View style={s.row}><Pressable style={[s.primary,{flex:1}]} onPress={saveEdit}><Text style={s.primaryText}>ذخیره ویرایش</Text></Pressable><Pressable style={[s.outline,{flex:1}]} onPress={cancelEdit}><Text style={s.outlineText}>انصراف</Text></Pressable></View></Card>}
  {tab==='خانه'&&<>
-   <View style={s.dashboardHero}><Text style={s.dashboardEyebrow}>مرکز پایش هوشمند</Text><Text style={s.dashboardTitle}>دیدبان ژیان</Text><Text style={s.dashboardSub}>موقعیت، بازار و وضعیت روزانه در یک نگاه</Text><Text style={s.dashboardClock}>{now.toLocaleDateString('fa-IR',{timeZone:'Asia/Tehran'})}  •  {now.toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Tehran'})}</Text></View>
-   <View style={s.metricGrid}>
-    <View style={s.metricCard}><Text style={s.metricEmoji}>🥇</Text><Text style={s.metricLabel}>طلای ۱۸ عیار / گرم</Text><Text style={s.metricValue}>{data.prices['طلای ۱۸ عیار (گرم)']?rial(data.prices['طلای ۱۸ عیار (گرم)']):'دریافت نشده'}</Text></View>
-    <View style={s.metricCard}><Text style={s.metricEmoji}>💵</Text><Text style={s.metricLabel}>دلار آزاد</Text><Text style={s.metricValue}>{data.prices['دلار آزاد']?rial(data.prices['دلار آزاد']):'دریافت نشده'}</Text></View>
-    <View style={s.metricCard}><Text style={s.metricEmoji}>🛢️</Text><Text style={s.metricLabel}>نفت برنت / بشکه</Text><Text style={s.metricValue}>{data.prices['نفت برنت (ریال/بشکه)']?rial(data.prices['نفت برنت (ریال/بشکه)']):'دریافت نشده'}</Text></View>
-    <View style={s.metricCard}><Text style={s.metricEmoji}>🌤️</Text><Text style={s.metricLabel}>آب‌وهوای {data.city}</Text><Text style={s.metricValue}>{weather?.temp!=null?`${weather.temp}°C`:'در حال دریافت'}</Text></View>
-    <View style={s.metricCard}><Text style={s.metricEmoji}>📈</Text><Text style={s.metricLabel}>تورم سالانه</Text><Text style={s.metricValue}>{data.prices['تورم سالانه (%)']?`${data.prices['تورم سالانه (%)']}٪`:'برای ثبت دستی'}</Text></View>
+  <View style={s.homeTop}>
+   <View style={s.brandRow}>
+    <View style={s.brandLogo}><Text style={s.brandLogoPin}>⌖</Text></View>
+    <View style={{flex:1}}><Text style={s.homeBrand}>دیدبان ژیان</Text><Text style={s.homeSubtitle}>رصدگر هوشمند موقعیت و اطلاعات روزانه</Text></View>
+    <Pressable onPress={()=>setTab('راهنما')} style={s.headerAction}><Text style={s.headerActionText}>⚙</Text></Pressable>
    </View>
-   <View style={s.sectionHeading}><Text style={s.sectionHeadingText}>موقعیت جغرافیایی و کروکی</Text><Pressable onPress={()=>setTab('موقعیت و نقشه')}><Text style={s.sectionLink}>جزئیات GPS ←</Text></Pressable></View>
-   <Pressable onPress={()=>setTab('موقعیت و نقشه')} style={s.locationLaunch}><Text style={s.locationLaunchIcon}>⌖</Text><View style={{flex:1}}><Text style={s.locationLaunchTitle}>دریافت موقعیت و نمایش کروکی</Text><Text style={s.locationLaunchSub}>GPS، مختصات و نقشه خیابان‌ها</Text></View><Text style={s.locationLaunchArrow}>←</Text></Pressable>
-  <Card title="آب‌وهوا و کیفیت هوا" color={BLUE} icon="🌤️">
-   <View style={s.row}><TextInput value={cityQuery} onChangeText={v=>{setCityQuery(v);setCityResults([]);}} placeholder={`نام شهر (فعلی: ${data.city})`} style={[s.input,{flex:1}]}/><Pressable style={s.smallBtn} onPress={searchCities}><Text style={s.btnText}>یافتن شهر</Text></Pressable></View>
-   {cityResults.map(g=><Pressable key={g.id} onPress={()=>loadWeather(g.name,g)} style={[s.outline,{marginTop:6}]}><Text style={s.outlineText}>{g.name}{g.admin1?', '+g.admin1:''}{g.country?', '+g.country:''}</Text></Pressable>)}
-   {weather?<View style={s.tiles}>
-    <Text style={s.metric}>دمای فعلی: {weather.temp??'—'} درجه سانتی‌گراد</Text>
-    <Text style={s.label}>وضعیت امروز</Text><Text style={s.muted}>{jalaliDate(weather.today?.date)||'امروز'}</Text><Text style={s.muted}>بیشینه دما: {weather.today?.max??'—'}° | کمینه دما: {weather.today?.min??'—'}° | احتمال بارش: {weather.today?.rain??'—'}٪</Text>
-    <Text style={s.label}>پیش‌بینی فردا</Text><Text style={s.muted}>{jalaliDate(weather.tomorrow?.date)||'فردا'}</Text><Text style={s.muted}>بیشینه دما: {weather.tomorrow?.max??'—'}° | کمینه دما: {weather.tomorrow?.min??'—'}° | احتمال بارش: {weather.tomorrow?.rain??'—'}٪</Text>
-    <Text style={s.label}>شرایط فعلی و کیفیت هوا</Text><Text style={s.muted}>دمای احساسی: {weather.feels??'—'}° سانتی‌گراد</Text><Text style={s.muted}>رطوبت نسبی: {weather.humidity??'—'}٪</Text><Text style={s.muted}>سرعت باد: {weather.wind??'—'} کیلومتر بر ساعت</Text><Text style={s.muted}>شاخص کیفیت هوا (AQI): {weather.aqi??'—'}</Text><Text style={s.muted}>ذرات معلق PM2.5: {weather.pm25??'—'} میکروگرم/مترمکعب</Text><Text style={s.muted}>ذرات معلق PM10: {weather.pm10??'—'} میکروگرم/مترمکعب</Text><Text style={s.muted}>آخرین دریافت: {weather.updated}</Text>
-   </View>:<Text style={s.muted}>برای دریافت وضعیت شهر، نام شهر را جست‌وجو و از فهرست نتایج انتخاب کنید.</Text>}
-   {busy&&<ActivityIndicator color={BLUE}/>}
-   <Pressable onPress={()=>loadWeather()} style={s.outline}><Text style={s.outlineText}>به‌روزرسانی شهر فعلی</Text></Pressable>
-  </Card>
-  <Card title="نمای کلی قیمت‌ها" color={RED} icon="📊">
-   {['دلار آزاد','طلای ۱۸ عیار (گرم)','ربع سکه','نیم سکه','تمام سکه'].map(k=><View style={s.priceRow} key={k}><Text style={s.label}>{k}</Text><Text style={s.value}>{data.prices[k]?rial(data.prices[k]):'ثبت نشده'}</Text></View>)}
-   <Text style={s.muted}>قیمت‌ها با دکمه «دریافت خودکار» از API عمومی Iran Market Data دریافت می‌شوند؛ انتشار اعلامی حدود هر ۳۰ دقیقه است. نرخ‌ها ممکن است با تأخیر یا بدون تضمین سرویس باشند.</Text>
-   {marketInfo&&<Text style={s.muted}>منبع: {marketInfo.source} | زمان انتشار: {marketInfo.time} | نرخ‌های دریافت‌شده: {marketInfo.count}</Text>}
-  </Card>
+   <Text style={s.homeDate}>{today(now)}  •  {now.toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Tehran'})}</Text>
+  </View>
+  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.metricStrip}>
+   <View style={s.metricCardWide}><Text style={s.metricEmoji}>🥇</Text><Text style={s.metricLabel}>طلای ۱۸ عیار</Text><Text style={s.metricValue}>{data.prices['طلای ۱۸ عیار (گرم)']?rial(data.prices['طلای ۱۸ عیار (گرم)']):'ثبت نشده'}</Text><Text style={s.metricUnit}>ریال / گرم</Text></View>
+   <View style={s.metricCardWide}><Text style={s.metricEmoji}>💵</Text><Text style={s.metricLabel}>دلار آزاد</Text><Text style={s.metricValue}>{data.prices['دلار آزاد']?rial(data.prices['دلار آزاد']):'ثبت نشده'}</Text><Text style={s.metricUnit}>ریال</Text></View>
+   <View style={s.metricCardWide}><Text style={s.metricEmoji}>🛢️</Text><Text style={s.metricLabel}>نفت برنت</Text><Text style={s.metricValue}>{data.prices['نفت برنت (ریال/بشکه)']?rial(data.prices['نفت برنت (ریال/بشکه)']):'ثبت نشده'}</Text><Text style={s.metricUnit}>ریال / بشکه</Text></View>
+   <View style={s.metricCardWide}><Text style={s.metricEmoji}>📈</Text><Text style={s.metricLabel}>تورم سالانه</Text><Text style={s.metricValue}>{data.prices['تورم سالانه (%)']?data.prices['تورم سالانه (%)']+'٪':'ثبت دستی'}</Text><Text style={s.metricUnit}>درصد</Text></View>
+   <View style={s.metricCardWide}><Text style={s.metricEmoji}>🌤️</Text><Text style={s.metricLabel}>آب‌وهوا • {data.city}</Text><Text style={s.metricValue}>{weather?.temp!=null?weather.temp+'°C':'در حال دریافت'}</Text><Text style={s.metricUnit}>دمای فعلی</Text></View>
+  </ScrollView>
+  <View style={s.sectionHeading}><Text style={s.sectionHeadingText}>موقعیت جغرافیایی و نقشه</Text><Pressable onPress={()=>setTab('موقعیت و نقشه')}><Text style={s.sectionLink}>جزئیات GPS ←</Text></Pressable></View>
+  <View style={s.mapFrame}>
+   <MapView style={s.homeMap} mapType="none" initialRegion={{latitude:35.6892,longitude:51.3890,latitudeDelta:0.075,longitudeDelta:0.075}} scrollEnabled zoomEnabled>
+    <UrlTile urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} tileSize={256}/>
+    <Marker coordinate={{latitude:35.6892,longitude:51.3890}} title="مرکز شهر تهران" description="نمای کلی شهر؛ موقعیت فعلی شما هنوز دریافت نشده است."/>
+   </MapView>
+   <View style={s.mapAttribution}><Text style={s.mapAttributionText}>© OpenStreetMap</Text></View>
+   <Pressable onPress={()=>setTab('موقعیت و نقشه')} style={s.mapLocate}><Text style={s.mapLocateText}>◎ دریافت موقعیت من</Text></Pressable>
+  </View>
+  <View style={s.coordinatePanel}>
+   <View style={s.coordinateItem}><Text style={s.coordinateCaption}>عرض جغرافیایی مرکز تهران</Text><Text style={s.coordinateValue}>۳۵٫۶۸۹۲° N</Text></View>
+   <View style={s.coordinateDivider}/>
+   <View style={s.coordinateItem}><Text style={s.coordinateCaption}>طول جغرافیایی مرکز تهران</Text><Text style={s.coordinateValue}>۵۱٫۳۸۹۰° E</Text></View>
+   <Text style={s.coordinateNote}>این مختصات مربوط به مرکز تقریبی شهر است، نه موقعیت فعلی گوشی.</Text>
+  </View>
+  <View style={s.quickActions}>
+   <Pressable onPress={()=>setTab('موقعیت و نقشه')} style={[s.quickAction,{backgroundColor:'#087f50'}]}><Text style={s.quickIcon}>⌖</Text><Text style={s.quickText}>مکان‌یابی مجدد</Text></Pressable>
+   <Pressable onPress={()=>setTab('موقعیت و نقشه')} style={[s.quickAction,{backgroundColor:'#087cf0'}]}><Text style={s.quickIcon}>▤</Text><Text style={s.quickText}>نمایش کروکی</Text></Pressable>
+   <Pressable onPress={()=>setTab('گزارش مالی')} style={[s.quickAction,{backgroundColor:'#7624d8'}]}><Text style={s.quickIcon}>▥</Text><Text style={s.quickText}>گزارش‌ها</Text></Pressable>
+   <Pressable onPress={()=>setTab('راهنما')} style={[s.quickAction,{backgroundColor:'#e88a08'}]}><Text style={s.quickIcon}>✎</Text><Text style={s.quickText}>تنظیمات</Text></Pressable>
+  </View>
+  <View style={s.homeStatus}><View style={s.statusDot}/><Text style={s.homeStatusText}>GPS هنوز فعال‌سازی/دریافت نشده است؛ برای ثبت موقعیت واقعی، «مکان‌یابی مجدد» را بزنید.</Text></View>
   <Card title="خلاصه وضعیت مالی" color={GREEN} icon="💰">
    <Text style={s.label}>مجموع دارایی‌ها</Text><Text style={s.total}>{rial(totalAssets)}</Text>
    <Text style={s.label}>مانده بدهی اقساط</Text><Text style={[s.total,{color:RED}]}>{rial(remainingDebt)}</Text>
    <Text style={s.label}>خالص دارایی پس از کسر بدهی</Text><Text style={s.total}>{rial(netAssets)}</Text>
-   <Text style={s.muted}>مجموع ارزش دارایی‌های ثبت‌شده</Text>
-   <Text style={s.total}>{rial(totalAssets)}</Text><Text style={s.muted}>موجودی حساب‌های بانکی: {rial(totalBankBalance)}</Text>
-   <Text style={s.muted}>برای تبدیل به دلار یا طلا، نرخ معتبر دلار و گرم طلا را در قیمت‌ها ثبت کنید.</Text>
+  </Card>
+  <Card title="آب‌وهوا و کیفیت هوا" color={BLUE} icon="🌤️">
+   <View style={s.row}><TextInput value={cityQuery} onChangeText={v=>{setCityQuery(v);setCityResults([]);}} placeholder={`نام شهر (فعلی: ${data.city})`} placeholderTextColor="#9bb6d5" style={[s.input,{flex:1}]}/><Pressable style={s.smallBtn} onPress={searchCities}><Text style={s.btnText}>یافتن شهر</Text></Pressable></View>
+   {cityResults.map(g=><Pressable key={g.id} onPress={()=>loadWeather(g.name,g)} style={[s.outline,{marginTop:6}]}><Text style={s.outlineText}>{g.name}{g.admin1?', '+g.admin1:''}{g.country?', '+g.country:''}</Text></Pressable>)}
+   {weather?<View style={s.tiles}><Text style={s.metric}>دمای فعلی: {weather.temp??'—'} درجه سانتی‌گراد</Text><Text style={s.muted}>AQI: {weather.aqi??'—'} | رطوبت: {weather.humidity??'—'}٪ | باد: {weather.wind??'—'} کیلومتر/ساعت</Text><Text style={s.muted}>آخرین دریافت: {weather.updated}</Text></View>:<Text style={s.muted}>اطلاعات آب‌وهوا هنوز دریافت نشده است.</Text>}
+   {busy&&<ActivityIndicator color={BLUE}/>}
+   <Pressable onPress={()=>loadWeather()} style={s.outline}><Text style={s.outlineText}>به‌روزرسانی آب‌وهوا</Text></Pressable>
+  </Card>
+  <Card title="نمای کلی قیمت‌ها" color={RED} icon="📊">
+   {['دلار آزاد','طلای ۱۸ عیار (گرم)','ربع سکه','نیم سکه','تمام سکه'].map(k=><View style={s.priceRow} key={k}><Text style={s.label}>{k}</Text><Text style={s.value}>{data.prices[k]?rial(data.prices[k]):'ثبت نشده'}</Text></View>)}
+   {marketInfo&&<Text style={s.muted}>منبع: {marketInfo.source} | آخرین انتشار: {marketInfo.time}</Text>}
+   <Pressable style={s.outline} onPress={()=>setTab('قیمت‌ها')}><Text style={s.outlineText}>مدیریت و به‌روزرسانی قیمت‌ها</Text></Pressable>
   </Card>
   <Pressable style={s.primary} onPress={saveDay}><Text style={s.primaryText}>ذخیره اطلاعات امروز در تاریخچه</Text></Pressable>
  </>}
@@ -443,6 +464,37 @@ export default function App(){
  </ScrollView></SafeAreaView>;
 }
 const s=StyleSheet.create({
+ homeTop:{backgroundColor:'#031b3d',borderRadius:18,padding:15,marginBottom:10,borderWidth:1,borderColor:'#125ca5'},
+ brandRow:{flexDirection:'row',alignItems:'center',gap:11},
+ brandLogo:{width:62,height:54,borderRadius:28,backgroundColor:'#0757a5',borderWidth:2,borderColor:'#20a7ff',alignItems:'center',justifyContent:'center'},
+ brandLogoPin:{fontSize:34,color:'#ff8a24',fontWeight:'900'},
+ homeBrand:{fontSize:27,fontWeight:'900',color:'#f4f8ff',textAlign:'right'},
+ homeSubtitle:{fontSize:12,color:'#b9d5f5',textAlign:'right',marginTop:3},
+ headerAction:{width:44,height:44,borderRadius:22,borderWidth:1,borderColor:'#1767ae',alignItems:'center',justifyContent:'center'},
+ headerActionText:{fontSize:25,color:'#d9efff'},
+ homeDate:{fontSize:12,color:'#57c8ff',textAlign:'center',marginTop:12},
+ metricStrip:{gap:9,paddingVertical:4,paddingBottom:14},
+ metricCardWide:{width:150,minHeight:142,backgroundColor:'#082b55',borderRadius:17,borderWidth:1.5,borderColor:'#1476c8',padding:11,justifyContent:'center',alignItems:'center'},
+ metricUnit:{fontSize:11,color:'#9fc7ec',marginTop:4},
+ mapFrame:{height:260,borderRadius:18,overflow:'hidden',borderWidth:2,borderColor:'#176ab4',marginBottom:10,backgroundColor:'#0b2b50'},
+ homeMap:{width:'100%',height:'100%'},
+ mapAttribution:{position:'absolute',top:9,left:9,backgroundColor:'rgba(3,19,45,0.82)',paddingHorizontal:9,paddingVertical:5,borderRadius:7},
+ mapAttributionText:{color:'#fff',fontSize:11,fontWeight:'700'},
+ mapLocate:{position:'absolute',bottom:12,left:12,backgroundColor:'#062b5a',borderWidth:1,borderColor:'#168cff',paddingHorizontal:13,paddingVertical:10,borderRadius:22},
+ mapLocateText:{color:'#fff',fontSize:13,fontWeight:'900'},
+ coordinatePanel:{backgroundColor:'#08254b',borderRadius:16,borderWidth:1,borderColor:'#174b80',padding:12,marginBottom:10,flexDirection:'row',flexWrap:'wrap',alignItems:'center'},
+ coordinateItem:{flex:1,minWidth:130,alignItems:'center',paddingVertical:5},
+ coordinateCaption:{fontSize:11,color:'#b4c9e4',textAlign:'center'},
+ coordinateValue:{fontSize:19,color:'#fff',fontWeight:'900',marginTop:6},
+ coordinateDivider:{width:1,height:48,backgroundColor:'#28517b'},
+ coordinateNote:{width:'100%',fontSize:10,color:'#8faecc',textAlign:'center',marginTop:8},
+ quickActions:{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:10},
+ quickAction:{flexGrow:1,flexBasis:'22%',minWidth:135,minHeight:84,borderRadius:15,alignItems:'center',justifyContent:'center',padding:9,elevation:3},
+ quickIcon:{fontSize:27,color:'#fff',fontWeight:'900'},
+ quickText:{fontSize:12,color:'#fff',fontWeight:'900',textAlign:'center',marginTop:5},
+ homeStatus:{flexDirection:'row',alignItems:'center',gap:9,borderWidth:1,borderColor:'#31577e',backgroundColor:'#061d3b',borderRadius:25,padding:12,marginBottom:12},
+ statusDot:{width:11,height:11,borderRadius:6,backgroundColor:'#e9a52a'},
+ homeStatusText:{flex:1,fontSize:11,color:'#d4e5f7',textAlign:'right',lineHeight:18},
  locationLaunch:{flexDirection:'row',alignItems:'center',gap:12,backgroundColor:'#08254b',borderRadius:16,padding:15,borderWidth:1,borderColor:'#168cff',marginBottom:12},locationLaunchIcon:{fontSize:30,color:'#56c8ff',fontWeight:'900'},locationLaunchTitle:{fontSize:15,color:'#f1f7ff',fontWeight:'900',textAlign:'right'},locationLaunchSub:{fontSize:12,color:'#b4c9e4',textAlign:'right',marginTop:4},locationLaunchArrow:{fontSize:22,color:'#56c8ff'},
  safe:{flex:1,backgroundColor:'#03132d'},header:{flexDirection:'row',alignItems:'center',paddingHorizontal:12,paddingVertical:14,borderBottomWidth:1,borderColor:'#164a82',gap:10,backgroundColor:'#03132d'},headerMark:{width:42,height:42,borderRadius:14,backgroundColor:'#0757a5',alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'#e5b94a'},headerEye:{fontSize:27,color:'#31c7ff',fontWeight:'900'},
  brand:{fontSize:25,fontWeight:'900',color:'#f4f8ff',textAlign:'right'},cardHeading:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:8},cardIcon:{fontSize:28},bankCard:{flexDirection:'row',alignItems:'center',gap:8,padding:12,backgroundColor:'#0b2d57',borderRadius:13,marginTop:9},bankEmoji:{fontSize:28},bankBalance:{fontSize:13,color:GREEN,fontWeight:'900'},choice:{padding:10,borderRadius:9,marginVertical:4,borderWidth:1,borderColor:'#286092',backgroundColor:'#061d3b'},typeButton:{flex:1,padding:12,borderRadius:9,alignItems:'center',marginTop:8},date:{fontSize:13,color:'#b9d5f5',textAlign:'right'},clock:{fontSize:18,color:'#35d8ff',fontWeight:'bold'},menuBtn:{padding:9,backgroundColor:'#0757a5',borderRadius:10},menuText:{fontSize:23,color:BLUE},menu:{position:'absolute',zIndex:5,top:75,left:8,right:8,backgroundColor:'#08254b',borderRadius:20,elevation:12,padding:14,borderWidth:1,borderColor:'#15528d'},menuHeading:{fontSize:17,fontWeight:'900',color:'#65c9ff',textAlign:'right',marginBottom:12},menuGrid:{flexDirection:'row',flexWrap:'wrap',gap:9},menuTile:{width:'48%',minHeight:105,backgroundColor:'#0b2b53',borderRadius:14,padding:10,borderWidth:1,borderColor:'#164a82',alignItems:'flex-end',justifyContent:'center'},menuTileActive:{backgroundColor:'#0b477c',borderColor:'#56c8ff'},menuIcon:{fontSize:25,marginBottom:5},menuLabel:{textAlign:'right',color:'#f1f6ff',fontSize:14,fontWeight:'900'},menuDesc:{textAlign:'right',color:'#a9c2e2',fontSize:11,marginTop:4},
