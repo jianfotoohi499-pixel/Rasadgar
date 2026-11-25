@@ -7,8 +7,9 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import * as XLSX from 'xlsx';
-import {requireNativeModule} from 'expo-modules-core';
-const TransactionSms=requireNativeModule('TransactionSms');
+import {requireOptionalNativeModule} from 'expo-modules-core';
+// نبود ماژول پیامک نباید مانع اجرای کل برنامه شود.
+const TransactionSms=requireOptionalNativeModule('TransactionSms');
 import LocationScreen from './LocationScreen';
 
 const BLUE='#087cf0', RED='#ff9b24', GREEN='#19c66a', YELLOW='#f4c542', INK='#f2f7ff', PAPER='#04152f';
