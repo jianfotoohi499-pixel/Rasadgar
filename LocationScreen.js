@@ -15,13 +15,15 @@ export default function LocationScreen(){
   async function locate(){
     setBusy(true);
     try{
-      const services=await Location.hasServicesEnabledAsync();
-      if(!services) throw new Error('مکان‌یابی گوشی خاموش است. GPS یا Location را روشن کنید.');
-      let result=await Location.requestForegroundPermissionsAsync();
+      // ابتدا درخواست مجوز را نمایش بده؛ بررسی سرویس GPS پیش از درخواست مجوز
+      // در برخی نسخه‌ها/دستگاه‌های اندروید باعث خروج ناگهانی برنامه می‌شود.
+      const result=await Location.requestForegroundPermissionsAsync();
       if(result.status!=='granted'){
         setPermission('مجوز مکان‌یابی داده نشد. از تنظیمات گوشی اجازه دسترسی هنگام استفاده را فعال کنید.');
         throw new Error('مجوز موقعیت مکانی لازم است.');
       }
+      const services=await Location.hasServicesEnabledAsync();
+      if(!services) throw new Error('مکان‌یابی گوشی خاموش است. GPS یا Location را روشن کنید.');
       setPermission('در حال دریافت مختصات GPS…');
       let fix=await Location.getCurrentPositionAsync({accuracy:Location.Accuracy.High});
       if(!fix?.coords) throw new Error('مختصات دریافت نشد.');
