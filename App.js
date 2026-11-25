@@ -1,6 +1,5 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {SafeAreaView, ScrollView, View, Text, TextInput, Pressable, StyleSheet, Alert, ActivityIndicator, PermissionsAndroid, Platform, useWindowDimensions} from 'react-native';
-import MapView, {Marker, UrlTile} from 'react-native-maps';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, {Path, Line, Circle, Text as SvgText} from 'react-native-svg';
 import {StatusBar} from 'expo-status-bar';
@@ -321,13 +320,11 @@ export default function App(){
    <View style={s.metricCardWide}><Text style={s.metricEmoji}>🌤️</Text><Text style={s.metricLabel}>آب‌وهوا • {data.city}</Text><Text style={s.metricValue}>{weather?.temp!=null?weather.temp+'°C':'در حال دریافت'}</Text><Text style={s.metricUnit}>دمای فعلی</Text></View>
   </ScrollView>
   <View style={s.sectionHeading}><Text style={s.sectionHeadingText}>موقعیت جغرافیایی و نقشه</Text><Pressable onPress={()=>setTab('موقعیت و نقشه')}><Text style={s.sectionLink}>جزئیات GPS ←</Text></Pressable></View>
-  <View style={s.mapFrame}>
-   <MapView style={s.homeMap} mapType="none" initialRegion={{latitude:35.6892,longitude:51.3890,latitudeDelta:0.075,longitudeDelta:0.075}} scrollEnabled zoomEnabled>
-    <UrlTile urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} tileSize={256}/>
-    <Marker coordinate={{latitude:35.6892,longitude:51.3890}} title="مرکز شهر تهران" description="نمای کلی شهر؛ موقعیت فعلی شما هنوز دریافت نشده است."/>
-   </MapView>
-   <View style={s.mapAttribution}><Text style={s.mapAttributionText}>© OpenStreetMap</Text></View>
-   <Pressable onPress={()=>setTab('موقعیت و نقشه')} style={s.mapLocate}><Text style={s.mapLocateText}>◎ دریافت موقعیت من</Text></Pressable>
+  <View style={[s.mapFrame,{backgroundColor:'#061d3b',minHeight:170,justifyContent:'center',alignItems:'center',padding:18}]}>
+   <Text style={{fontSize:42,color:'#56c8ff',fontWeight:'900'}}>⌖</Text>
+   <Text style={{fontSize:16,color:'#f1f7ff',fontWeight:'900',marginTop:6}}>نقشه و موقعیت جغرافیایی</Text>
+   <Text style={{fontSize:12,color:'#b9d5f5',textAlign:'center',marginTop:5}}>برای جلوگیری از توقف برنامه هنگام شروع، نقشه تعاملی در این صفحه بارگذاری نمی‌شود. نقشه واقعی در بخش «موقعیت و نقشه» باز می‌شود.</Text>
+   <Pressable onPress={()=>setTab('موقعیت و نقشه')} style={s.mapLocate}><Text style={s.mapLocateText}>◎ ورود به GPS و نقشه OpenStreetMap</Text></Pressable>
   </View>
   <View style={s.coordinatePanel}>
    <View style={s.coordinateItem}><Text style={s.coordinateCaption}>عرض جغرافیایی مرکز تهران</Text><Text style={s.coordinateValue}>۳۵٫۶۸۹۲° N</Text></View>
