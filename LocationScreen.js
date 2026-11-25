@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useRef, useState} from 'react';
 import {View, Text, Pressable, ActivityIndicator, Alert, Share, StyleSheet} from 'react-native';
 import MapView, {Marker, UrlTile} from 'react-native-maps';
 import * as Location from 'expo-location';
@@ -10,27 +10,52 @@ export default function LocationScreen(){
   const [position,setPosition]=useState(null);
   const [busy,setBusy]=useState(false);
   const [permission,setPermission]=useState('برای نمایش موقعیت، دکمه دریافت موقعیت را بزنید.');
-  const [mapReady,setMapReady]=useState(false);
+  const mapRef=useRef(null);
 
   async function locate(){
+    if(busy) return;
     setBusy(true);
+    setPermission('در حال بررسی مجوز و وضعیت GPS…');
     try{
-      // ابتدا درخواست مجوز را نمایش بده؛ بررسی سرویس GPS پیش از درخواست مجوز
-      // در برخی نسخه‌ها/دستگاه‌های اندروید باعث خروج ناگهانی برنامه می‌شود.
       const result=await Location.requestForegroundPermissionsAsync();
       if(result.status!=='granted'){
-        setPermission('مجوز مکان‌یابی داده نشد. از تنظیمات گوشی اجازه دسترسی هنگام استفاده را فعال کنید.');
-        throw new Error('مجوز موقعیت مکانی لازم است.');
+        setPermission('مجوز مکان‌یابی داده نشد. از تنظیمات گوشی، دسترسی مکان‌یابی هنگام استفاده را فعال کنید.');
+        Alert.alert('نیاز به مجوز مکان‌یابی','برای نمایش مختصات و نقشه، اجازه مکان‌یابی هنگام استفاده از برنامه را فعال کنید.');
+        return;
       }
       const services=await Location.hasServicesEnabledAsync();
-      if(!services) throw new Error('مکان‌یابی گوشی خاموش است. GPS یا Location را روشن کنید.');
-      setPermission('در حال دریافت مختصات GPS…');
-      let fix=await Location.getCurrentPositionAsync({accuracy:Location.Accuracy.High});
-      if(!fix?.coords) throw new Error('مختصات دریافت نشد.');
-      setPosition({latitude:fix.coords.latitude,longitude:fix.coords.longitude,accuracy:fix.coords.accuracy,altitude:fix.coords.altitude});
-      setPermission('موقعیت با GPS گوشی دریافت شد.');
-    }catch(e){Alert.alert('مکان‌یابی ناموفق',e.message||String(e));}
-    finally{setBusy(false);}
+      if(!services){
+        setPermission('مکان‌یابی گوشی خاموش است.');
+        Alert.alert('GPS خاموش است','مکان‌یابی (Location) گوشی را روشن کنید و دوباره تلاش کنید.');
+        return;
+      }
+      let previous=null;
+      try{previous=await Location.getLastKnownPositionAsync({maxAge:120000,requiredAccuracy:1000});}catch(_){}
+      if(previous?.coords){
+        setPosition({latitude:previous.coords.latitude,longitude:previous.coords.longitude,accuracy:previous.coords.accuracy,altitude:previous.coords.altitude});
+        setPermission('موقعیت ذخیره‌شده نمایش داده شد؛ در حال به‌روزرسانی با GPS…');
+      }else{
+        setPermission('در حال دریافت مختصات GPS؛ لطفاً چند لحظه صبر کنید…');
+      }
+      let timer;
+      const currentPromise=Location.getCurrentPositionAsync({accuracy:Location.Accuracy.High,mayShowUserSettingsDialog:true});
+      const timeoutPromise=new Promise((_,reject)=>{
+        timer=setTimeout(()=>reject(new Error('زمان دریافت GPS بیش از حد طول کشید. فضای باز را امتحان کنید و دوباره بزنید.')),20000);
+      });
+      let fix;
+      try{fix=await Promise.race([currentPromise,timeoutPromise]);}
+      finally{clearTimeout(timer);}
+      if(!fix?.coords || !Number.isFinite(fix.coords.latitude) || !Number.isFinite(fix.coords.longitude)){
+        throw new Error('مختصات معتبر از GPS دریافت نشد.');
+      }
+      const next={latitude:fix.coords.latitude,longitude:fix.coords.longitude,accuracy:fix.coords.accuracy,altitude:fix.coords.altitude};
+      setPosition(next);
+      setPermission('موقعیت فعلی با موفقیت دریافت شد.');
+      mapRef.current?.animateToRegion({...next,latitudeDelta:0.008,longitudeDelta:0.008},500);
+    }catch(e){
+      setPermission(position?'موقعیت قبلی حفظ شد؛ دریافت موقعیت تازه ناموفق بود.':'دریافت موقعیت ناموفق بود.');
+      Alert.alert('مکان‌یابی ناموفق',e?.message||'خطای نامشخص در دریافت موقعیت');
+    }finally{setBusy(false);}
   }
 
   async function share(){
@@ -58,10 +83,9 @@ export default function LocationScreen(){
     <View style={styles.mapCard}>
       <Text style={styles.heading}>کروکی و نقشه خیابان‌ها</Text>
       {position?<MapView
+        ref={mapRef}
         style={styles.map}
         initialRegion={{...position,latitudeDelta:0.008,longitudeDelta:0.008}}
-        region={{...position,latitudeDelta:0.008,longitudeDelta:0.008}}
-        onMapReady={()=>setMapReady(true)}
         mapType="none"
         showsUserLocation
         showsMyLocationButton
