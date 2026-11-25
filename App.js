@@ -19,7 +19,7 @@ const tehranDate=(date=new Date())=>{const p=new Intl.DateTimeFormat('en-CA',{ti
 const rial=n=>Number(n||0).toLocaleString('fa-IR')+' ریال';
 const normalizeNumber=value=>{const digits=String(value??'').replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));const cleaned=digits.replace(/[٬،,\s]/g,'').replace(/٫/g,'.');return Number(cleaned);};
 const assetTypes=['ملک','خودرو','طلا','ارز','سپرده بانکی','سهام','سایر'];
-const initial={city:'تهران',prices:{'دلار آزاد':'','طلای ۱۸ عیار (گرم)':'','ربع سکه':'','نیم سکه':'','تمام سکه':'','نفت برنت (ریال/بشکه)':'','نفت WTI (ریال/بشکه)':''},assets:[],loans:[],accounts:[],transactions:[],history:[]};
+const initial={city:'تهران',prices:{'دلار آزاد':'','طلای ۱۸ عیار (گرم)':'','ربع سکه':'','نیم سکه':'','تمام سکه':'','نفت برنت (ریال/بشکه)':'','نفت WTI (ریال/بشکه)':'','تورم سالانه (%)':''},assets:[],loans:[],accounts:[],transactions:[],history:[]};
 
 function Card({title,children,color=BLUE,icon='📊'}){return <View style={s.card}><View style={s.cardHeading}><Text style={s.cardIcon}>{icon}</Text><Text style={[s.cardTitle,{color,flex:1}]}>{title}</Text></View>{children}</View>}
 function Field({label,value,onChange,placeholder='مقدار را وارد کنید',keyboardType='decimal-pad'}){return <View style={s.field}><Text style={s.label}>{label}</Text><TextInput value={String(value??'')} onChangeText={onChange} keyboardType={keyboardType} placeholder={placeholder} placeholderTextColor="#888" style={s.input}/></View>}
@@ -140,6 +140,7 @@ export default function App(){
  }
 
  async function requestSmsAccess(){
+   if(!TransactionSms){Alert.alert('قابلیت پیامک در دسترس نیست','ماژول پیامک در این نسخه نصب نشده است؛ سایر بخش‌های برنامه بدون مشکل قابل استفاده‌اند.');return;}
    if(Platform.OS!=='android'){Alert.alert('عدم پشتیبانی','خواندن خودکار پیامک فقط در نسخه اندروید پشتیبانی می‌شود.');return;}
    try{
      const receive=await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECEIVE_SMS,{title:'اجازه دریافت پیامک جدید',message:'برای ثبت خودکار تراکنش‌های بانکی جدید لازم است.',buttonPositive:'اجازه می‌دهم',buttonNegative:'انصراف'});
@@ -152,10 +153,12 @@ export default function App(){
    }catch(e){Alert.alert('خطا در مجوز پیامک',String(e));}
  }
  async function scanOldSms(){
+   if(!TransactionSms){Alert.alert('قابلیت پیامک در دسترس نیست','ماژول پیامک در این نسخه نصب نشده است.');return;}
    if(Platform.OS!=='android')return;
    try{const granted=await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_SMS);if(!granted){Alert.alert('مجوز لازم است','ابتدا مجوز خواندن پیامک را فعال کنید.');return;}setSmsSyncing(true);const count=await TransactionSms.scanInbox(10000);setSmsOldCount(count);await syncSmsTransactions();Alert.alert('اسکن تمام شد',`${count} پیامک دارای الگوی تراکنش شناسایی شد.`);}catch(e){Alert.alert('خطا در اسکن پیامک‌ها',String(e));}finally{setSmsSyncing(false);}
  }
  async function syncSmsTransactions(){
+   if(!TransactionSms||Platform.OS!=='android')return;
    if(Platform.OS!=='android')return;
    setSmsSyncing(true);
    try{
@@ -177,7 +180,7 @@ export default function App(){
    }catch(e){Alert.alert('دریافت پیامک ناموفق بود',String(e));}
    finally{setSmsSyncing(false);}
  }
- useEffect(()=>{if(!smsEnabled)return;syncSmsTransactions();const timer=setInterval(syncSmsTransactions,12000);return()=>clearInterval(timer);},[smsEnabled]);
+ useEffect(()=>{if(!smsEnabled||!TransactionSms)return;syncSmsTransactions();const timer=setInterval(syncSmsTransactions,12000);return()=>clearInterval(timer);},[smsEnabled]);
  function removeTransaction(t){
    const historical=String(t.source||'')==='پیامک قدیمی';
    Alert.alert('حذف تراکنش',historical?'تراکنش قدیمی حذف شود؟ موجودی حساب تغییر نمی‌کند.':'تراکنش حذف و اثر آن بر موجودی برگردانده شود؟',[{text:'انصراف',style:'cancel'},{text:'حذف',style:'destructive',onPress:()=>setData(d=>({...d,transactions:(d.transactions||[]).filter(x=>x.id!==t.id),accounts:historical?(d.accounts||[]):(d.accounts||[]).map(a=>a.id!==t.accountId?a:{...a,balance:a.balance+(t.type==='واریز'?-t.amount:t.amount)})}))}]);
@@ -305,6 +308,7 @@ export default function App(){
     <View style={s.metricCard}><Text style={s.metricLabel}>دلار آزاد</Text><Text style={s.metricValue}>{data.prices['دلار آزاد']?rial(data.prices['دلار آزاد']):'دریافت نشده'}</Text></View>
     <View style={s.metricCard}><Text style={s.metricLabel}>نفت برنت / بشکه</Text><Text style={s.metricValue}>{data.prices['نفت برنت (ریال/بشکه)']?rial(data.prices['نفت برنت (ریال/بشکه)']):'دریافت نشده'}</Text></View>
     <View style={s.metricCard}><Text style={s.metricLabel}>آب‌وهوای {data.city}</Text><Text style={s.metricValue}>{weather?.temp!=null?`${weather.temp}°C`:'در حال دریافت'}</Text></View>
+    <View style={s.metricCard}><Text style={s.metricLabel}>تورم سالانه</Text><Text style={s.metricValue}>{data.prices['تورم سالانه (%)']?`${data.prices['تورم سالانه (%)']}٪`:'برای ثبت دستی'}</Text></View>
    </View>
    <View style={s.sectionHeading}><Text style={s.sectionHeadingText}>موقعیت جغرافیایی و کروکی</Text><Pressable onPress={()=>setTab('موقعیت و نقشه')}><Text style={s.sectionLink}>جزئیات GPS ←</Text></Pressable></View>
    <LocationScreen/>
@@ -345,7 +349,7 @@ export default function App(){
  {tab==='دارایی‌های من'&&<Card title="دارایی‌های شخصی" color={GREEN} icon="🏠">
    <Text style={s.label}>نوع دارایی را انتخاب کنید</Text>
    <View style={{flexDirection:'row',flexWrap:'wrap',gap:7,marginVertical:9}}>
-    {assetTypes.map(t=><Pressable key={t} onPress={()=>setAssetType(t)} style={{paddingVertical:9,paddingHorizontal:12,borderRadius:9,backgroundColor:assetType===t?GREEN:'#edf1ed',borderWidth:1,borderColor:assetType===t?GREEN:'#ccd8ce'}}><Text style={{color:assetType===t?'#fff':INK,fontWeight:'700'}}>{t}</Text></Pressable>)}
+    {assetTypes.map(t=><Pressable key={t} onPress={()=>setAssetType(t)} style={{paddingVertical:9,paddingHorizontal:12,borderRadius:9,backgroundColor:assetType===t?GREEN:'#edf1ed',borderWidth:1,borderColor:assetType===t?GREEN:'#ccd8ce'}}><Text style={{color:assetType===t?'#fff':'#17324f',fontWeight:'700'}}>{t}</Text></Pressable>)}
    </View>
    <Field label={assetType==='سایر'?'عنوان دارایی':'نام یا شرح دارایی'} value={assetName} onChange={setAssetName} placeholder={assetType==='سایر'?'مثلاً تجهیزات، لوازم یا سایر موارد':'نام یا توضیح دارایی را وارد کنید'}/>
    <Field label="ارزش تخمینی به ریال (اعداد فارسی یا انگلیسی)" value={assetValue} onChange={setAssetValue} placeholder="مثلاً ۱۲۵۰۰۰۰۰۰۰"/>
