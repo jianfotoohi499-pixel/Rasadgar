@@ -1,25 +1,37 @@
 {
   "expo": {
-    "name": "رصدگر ژیان",
-    "slug": "rasadgar-zhian",
-    "version": "1.4.0",
+    "name": "دیدبان ژیان",
+    "slug": "didban-zhian",
+    "version": "1.4.2",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "android": {
-      "package": "ir.zhian.rasadgar",
-      "versionCode": 5,
+      "package": "ir.zhian.didban",
+      "versionCode": 7,
       "adaptiveIcon": {
         "foregroundImage": "./assets/rasadgar-icon.png",
         "backgroundColor": "#06132e"
-      }
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
     },
     "extra": {
-      "description": "داشبورد شخصی بازار، دارایی، آب‌وهوا و تقویم"
+      "description": "دستیار هوشمند مالی، اقتصادی و موقعیت مکانی"
     },
     "icon": "./assets/rasadgar-icon.png",
     "autolinking": {
       "nativeModulesDir": "./modules"
-    }
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "برای نمایش موقعیت فعلی و مختصات GPS، اجازه مکان‌یابی هنگام استفاده از برنامه لازم است."
+        }
+      ]
+    ]
   }
 }
