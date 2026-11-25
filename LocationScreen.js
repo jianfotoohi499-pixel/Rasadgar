@@ -77,19 +77,19 @@ export default function LocationScreen(){
 
 const styles=StyleSheet.create({
  wrap:{gap:12},
- card:{backgroundColor:'#fff',borderRadius:16,padding:15,borderWidth:1,borderColor:'#dbe4f0'},
- mapCard:{backgroundColor:'#fff',borderRadius:16,padding:12,borderWidth:1,borderColor:'#dbe4f0'},
- heading:{fontSize:19,fontWeight:'900',color:'#102b50',textAlign:'right',marginBottom:8},
- muted:{fontSize:13,color:'#526174',textAlign:'right',lineHeight:22,marginTop:5},
- button:{backgroundColor:'#1556a3',borderRadius:11,minHeight:48,alignItems:'center',justifyContent:'center',marginTop:12},
+ card:{backgroundColor:'#08254b',borderRadius:16,padding:15,borderWidth:1,borderColor:'#174b80'},
+ mapCard:{backgroundColor:'#08254b',borderRadius:16,padding:12,borderWidth:1,borderColor:'#174b80'},
+ heading:{fontSize:19,fontWeight:'900',color:'#f1f7ff',textAlign:'right',marginBottom:8},
+ muted:{fontSize:13,color:'#b4c9e4',textAlign:'right',lineHeight:22,marginTop:5},
+ button:{backgroundColor:'#087cf0',borderRadius:11,minHeight:48,alignItems:'center',justifyContent:'center',marginTop:12},
  buttonText:{color:'#fff',fontSize:16,fontWeight:'800'},
- status:{fontSize:13,color:'#1556a3',textAlign:'right',marginTop:10},
- coord:{fontSize:16,color:'#142b48',fontWeight:'800',textAlign:'right',marginTop:8},
- outline:{borderWidth:1,borderColor:'#1556a3',borderRadius:10,padding:12,alignItems:'center',marginTop:12},
- outlineText:{color:'#1556a3',fontWeight:'800'},
+ status:{fontSize:13,color:'#56c8ff',textAlign:'right',marginTop:10},
+ coord:{fontSize:16,color:'#ffffff',fontWeight:'800',textAlign:'right',marginTop:8},
+ outline:{borderWidth:1,borderColor:'#168cff',borderRadius:10,padding:12,alignItems:'center',marginTop:12},
+ outlineText:{color:'#56c8ff',fontWeight:'800'},
  map:{height:340,borderRadius:12,marginTop:8},
- empty:{height:220,alignItems:'center',justifyContent:'center',backgroundColor:'#eef3f8',borderRadius:12,padding:18},
- emptyIcon:{fontSize:55,color:'#1556a3'},
- attribution:{fontSize:10,color:'#64748b',textAlign:'center',marginTop:8},
- foot:{fontSize:12,color:'#64748b',lineHeight:21,textAlign:'right',paddingHorizontal:4}
+ empty:{height:220,alignItems:'center',justifyContent:'center',backgroundColor:'#061d3b',borderRadius:12,padding:18},
+ emptyIcon:{fontSize:55,color:'#56c8ff'},
+ attribution:{fontSize:10,color:'#a9c2e2',textAlign:'center',marginTop:8},
+ foot:{fontSize:12,color:'#a9c2e2',lineHeight:21,textAlign:'right',paddingHorizontal:4}
 });
