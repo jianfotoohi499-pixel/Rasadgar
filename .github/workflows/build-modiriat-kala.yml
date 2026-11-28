@@ -36,6 +36,12 @@ jobs:
         working-directory: modiriat-kala
         run: npm install
 
+      - name: Render storefront launcher icon
+        working-directory: modiriat-kala
+        run: |
+          npm install --no-save sharp
+          node -e "require('sharp')('./assets/store-icon.svg').resize(1024,1024).png().toFile('./assets/icon.png').then(()=>console.log('Storefront icon generated'))"
+
       - name: Generate Android native project
         working-directory: modiriat-kala
         run: npx expo prebuild --platform android --non-interactive
