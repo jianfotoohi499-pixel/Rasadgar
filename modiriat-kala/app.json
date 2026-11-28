@@ -2,12 +2,17 @@
   "expo": {
     "name": "مدیریت کالا",
     "slug": "modiriat-kala",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "icon": "./assets/icon.png",
     "android": {
-      "package": "ir.modiriatkala.app"
+      "package": "ir.modiriatkala.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#073B91"
+      }
     }
   }
 }
