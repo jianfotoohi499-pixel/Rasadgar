@@ -22,7 +22,7 @@ function Field({label,value,onChangeText,placeholder,keyboardType='default'}) {
 }
 export default function App() {
   const [db,setDb]=useState(null), [tab,setTab]=useState('خانه'), [products,setProducts]=useState([]);
-  const [name,setName]=useState(''), [barcode,setBarcode]=useState(''), [qty,setQty]=useState('0'), [buy,setBuy]=useState('0'), [sell,setSell]=useState('0');
+  const [name,setName]=useState(''), [barcode,setBarcode]=useState(''), [qty,setQty]=useState('0'), [buy,setBuy]=useState('0'), [sell,setSell]=useState('0'), [editingId,setEditingId]=useState(null);
   const [search,setSearch]=useState(''), [moveProduct,setMoveProduct]=useState(null), [moveQty,setMoveQty]=useState('1'), [moveType,setMoveType]=useState('in');
   const [business,setBusiness]=useState('فروشگاه نمونه'), [businessId,setBusinessId]=useState(1), [dark,setDark]=useState(false);
   const theme = dark ? { ...C, bg:'#101522',card:'#1B2433',ink:'#F2F5FA',muted:'#AAB4C5',line:'#303B4D' } : C;
@@ -44,8 +44,27 @@ export default function App() {
   async function saveBusiness(){ if(!db || !business.trim()) return Alert.alert('نامعتبر','نام فروشگاه را وارد کنید.'); await db.runAsync('UPDATE businesses SET name=? WHERE id=?',business.trim(),businessId); setBusiness(business.trim()); Alert.alert('ذخیره شد','نام فروشگاه ذخیره شد.'); }
   async function addProduct(){
     if(!name.trim()) return Alert.alert('اطلاعات ناقص','نام کالا را وارد کنید.');
-    const d=db; await d.runAsync('INSERT INTO products(business_id,name,barcode,qty,buy,sell) VALUES(?,?,?,?,?,?)',businessId,name.trim(),barcode.trim(),Math.max(0,Number(qty)||0),Math.max(0,Number(buy)||0),Math.max(0,Number(sell)||0));
-    setName('');setBarcode('');setQty('0');setBuy('0');setSell('0');await refresh(d);setTab('کالاها');
+    const d=db, values=[name.trim(),barcode.trim(),Math.max(0,Number(qty)||0),Math.max(0,Number(buy)||0),Math.max(0,Number(sell)||0)];
+    if(editingId!==null){
+      await d.runAsync('UPDATE products SET name=?,barcode=?,qty=?,buy=?,sell=? WHERE id=? AND business_id=?',...values,editingId,businessId);
+      Alert.alert('ویرایش شد','مشخصات کالا به‌روزرسانی شد.');
+    } else {
+      await d.runAsync('INSERT INTO products(business_id,name,barcode,qty,buy,sell) VALUES(?,?,?,?,?,?)',businessId,...values);
+    }
+    setEditingId(null);setName('');setBarcode('');setQty('0');setBuy('0');setSell('0');await refresh(d);setTab('کالاها');
+  }
+  function startEdit(p){
+    setEditingId(p.id);setName(p.name);setBarcode(String(p.barcode||''));setQty(String(p.qty??0));setBuy(String(p.buy??0));setSell(String(p.sell??0));setTab('افزودن کالا');
+  }
+  function removeProduct(p){
+    Alert.alert('حذف کالا',`«${p.name}» حذف شود؟`,[
+      {text:'انصراف',style:'cancel'},
+      {text:'حذف',style:'destructive',onPress:async()=>{
+        await db.runAsync('DELETE FROM movements WHERE product_id=? AND business_id=?',p.id,businessId);
+        await db.runAsync('DELETE FROM products WHERE id=? AND business_id=?',p.id,businessId);
+        await refresh();
+      }}
+    ]);
   }
   async function movement(){
     if(!moveProduct || !(Number(moveQty)>0)) return Alert.alert('ورودی نامعتبر','کالا و تعداد معتبر انتخاب کنید.');
@@ -83,6 +102,7 @@ export default function App() {
       <Text style={{textAlign:'right',fontWeight:'800',color:theme.ink,fontSize:15}}>{p.name}</Text>
       <Text style={{textAlign:'right',color:theme.muted,fontSize:11,marginTop:4}}>بارکد: {p.barcode||'ثبت نشده'}</Text>
       <View style={{flexDirection:'row',justifyContent:'space-between',marginTop:8}}><Text style={{color:C.green,fontWeight:'700'}}>موجودی: {money(p.qty)}</Text><Text style={{color:theme.muted}}>فروش: {money(p.sell)}</Text></View>
+      <View style={{flexDirection:'row',gap:8,marginTop:8}}><View style={{flex:1}}><Btn title="ویرایش" onPress={()=>startEdit(p)} secondary/></View><View style={{flex:1}}><Btn title="حذف کالا" onPress={()=>removeProduct(p)} secondary/></View></View>
     </View>)}
     {shown.length===0&&<Text style={{textAlign:'center',color:theme.muted,margin:20}}>کالایی پیدا نشد.</Text>}
   </>);
@@ -92,8 +112,8 @@ export default function App() {
     <Field label="موجودی اولیه" value={qty} onChangeText={setQty} keyboardType="decimal-pad"/>
     <Field label="قیمت خرید" value={buy} onChangeText={setBuy} keyboardType="numeric"/>
     <Field label="قیمت فروش" value={sell} onChangeText={setSell} keyboardType="numeric"/>
-    <Btn title="ذخیره کالا" onPress={addProduct}/>
-    <Btn title="انصراف" onPress={()=>setTab('کالاها')} secondary/>
+    <Btn title={editingId!==null?"ذخیره تغییرات":"ذخیره کالا"} onPress={addProduct}/>
+    <Btn title="انصراف" onPress={()=>{setEditingId(null);setName('');setBarcode('');setQty('0');setBuy('0');setSell('0');setTab('کالاها');}} secondary/>
   </>);
   else if(tab==='عملیات انبار') content=page('عملیات انبار','ثبت ورود و خروج موجودی',<>
     <Text style={{textAlign:'right',color:theme.ink,fontWeight:'700',marginBottom:8}}>نوع عملیات</Text>
