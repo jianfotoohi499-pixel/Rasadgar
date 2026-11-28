@@ -41,7 +41,8 @@ export default function App() {
     setBusinessId(b.id); setBusiness(b.name); setDb(d); await refresh(d,b.id);
   })().catch(e=>Alert.alert('خطا در پایگاه داده',String(e))); },[]);
   async function refresh(d=db,id=businessId) { if(!d)return; const rows=await d.getAllAsync('SELECT * FROM products WHERE business_id=? ORDER BY id DESC',id); setProducts(rows); }
-  async function saveBusiness(){ if(!db || !business.trim()) return Alert.alert('نامعتبر','نام فروشگاه را وارد کنید.'); await db.runAsync('UPDATE businesses SET name=? WHERE id=?',business.trim(),businessId); setBusiness(business.trim()); Alert.alert('ذخیره شد','نام فروشگاه ذخیره شد.'); }\n  async function addProduct(){
+  async function saveBusiness(){ if(!db || !business.trim()) return Alert.alert('نامعتبر','نام فروشگاه را وارد کنید.'); await db.runAsync('UPDATE businesses SET name=? WHERE id=?',business.trim(),businessId); setBusiness(business.trim()); Alert.alert('ذخیره شد','نام فروشگاه ذخیره شد.'); }
+  async function addProduct(){
     if(!name.trim()) return Alert.alert('اطلاعات ناقص','نام کالا را وارد کنید.');
     const d=db; await d.runAsync('INSERT INTO products(business_id,name,barcode,qty,buy,sell) VALUES(?,?,?,?,?,?)',businessId,name.trim(),barcode.trim(),Math.max(0,Number(qty)||0),Math.max(0,Number(buy)||0),Math.max(0,Number(sell)||0));
     setName('');setBarcode('');setQty('0');setBuy('0');setSell('0');await refresh(d);setTab('کالاها');
