@@ -149,12 +149,14 @@ export default function App() {
       <Text style={{color:theme.primary,fontWeight:'900',fontSize:18}}>مدیریت کالا</Text>
       <Text style={{color:theme.muted,fontSize:11}}>{business}</Text>
     </View>
-    <View style={{flex:1}}>{content}</View>
-    <View style={{flexDirection:'row',backgroundColor:theme.card,borderTopWidth:1,borderColor:theme.line,paddingVertical:7}}>
-      {tabs.map(([t,ic])=><TouchableOpacity key={t} onPress={()=>setTab(t)} style={{flex:1,alignItems:'center',paddingVertical:5}}>
-        <Text style={{fontSize:18,color:tab===t?theme.primary:theme.muted}}>{ic}</Text>
-        <Text style={{fontSize:10,color:tab===t?theme.primary:theme.muted,fontWeight:tab===t?'800':'500',marginTop:3}}>{t}</Text>
-      </TouchableOpacity>)}
+    <View style={{flex:1,flexDirection:'row',direction:'ltr'}}>
+      <View style={{flex:1,minWidth:0}}>{content}</View>
+      <View style={{width:82,backgroundColor:theme.card,borderLeftWidth:1,borderColor:theme.line,paddingVertical:8,justifyContent:'flex-start'}}>
+        {tabs.map(([t,ic])=><TouchableOpacity key={t} onPress={()=>setTab(t)} style={{minHeight:66,alignItems:'center',justifyContent:'center',paddingHorizontal:4,paddingVertical:8,marginHorizontal:5,marginVertical:3,borderRadius:12,backgroundColor:tab===t?theme.pale:'transparent'}}>
+          <Text style={{fontSize:21,color:tab===t?theme.primary:theme.muted}}>{ic}</Text>
+          <Text style={{fontSize:10,textAlign:'center',color:tab===t?theme.primary:theme.muted,fontWeight:tab===t?'800':'500',marginTop:4}}>{t}</Text>
+        </TouchableOpacity>)}
+      </View>
     </View>
   </SafeAreaView>;
 }
