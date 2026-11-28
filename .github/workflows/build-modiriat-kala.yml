@@ -1,4 +1,4 @@
-name: Build Modiriat Kala Android APK
+name: Build Sabt Sefaresh Android APK
 
 on:
   workflow_dispatch:
@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   build-android:
-    name: Build Modiriat Kala release APK
+    name: Build Sabt Sefaresh release APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -52,10 +52,13 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon --stacktrace
 
+      - name: Prepare clearly named APK
+        run: cp modiriat-kala/android/app/build/outputs/apk/release/app-release.apk modiriat-kala/android/app/build/outputs/apk/release/Sabt-Sefaresh.apk
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: modiriat-kala-android-apk
-          path: modiriat-kala/android/app/build/outputs/apk/release/*.apk
+          name: sabt-sefaresh-android-apk
+          path: modiriat-kala/android/app/build/outputs/apk/release/Sabt-Sefaresh.apk
           if-no-files-found: error
           retention-days: 14
