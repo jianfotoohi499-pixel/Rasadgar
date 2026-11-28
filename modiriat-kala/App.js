@@ -24,7 +24,7 @@ export default function App() {
   const [db,setDb]=useState(null), [tab,setTab]=useState('خانه'), [products,setProducts]=useState([]);
   const [name,setName]=useState(''), [barcode,setBarcode]=useState(''), [qty,setQty]=useState('0'), [buy,setBuy]=useState('0'), [sell,setSell]=useState('0');
   const [search,setSearch]=useState(''), [moveProduct,setMoveProduct]=useState(null), [moveQty,setMoveQty]=useState('1'), [moveType,setMoveType]=useState('in');
-  const [business,setBusiness]=useState('فروشگاه نمونه'), [dark,setDark]=useState(false);
+  const [business,setBusiness]=useState('فروشگاه نمونه'), [businessId,setBusinessId]=useState(1), [dark,setDark]=useState(false);
   const theme = dark ? { ...C, bg:'#101522',card:'#1B2433',ink:'#F2F5FA',muted:'#AAB4C5',line:'#303B4D' } : C;
 
   useEffect(()=>{ (async()=>{
@@ -33,22 +33,27 @@ export default function App() {
       CREATE TABLE IF NOT EXISTS businesses(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS products(id INTEGER PRIMARY KEY AUTOINCREMENT,business_id INTEGER NOT NULL,name TEXT NOT NULL,barcode TEXT,qty REAL DEFAULT 0,buy REAL DEFAULT 0,sell REAL DEFAULT 0,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
       CREATE TABLE IF NOT EXISTS movements(id INTEGER PRIMARY KEY AUTOINCREMENT,business_id INTEGER NOT NULL,product_id INTEGER NOT NULL,type TEXT NOT NULL,qty REAL NOT NULL,created_at TEXT DEFAULT CURRENT_TIMESTAMP);`);
-    const b=await d.getFirstAsync('SELECT * FROM businesses LIMIT 1');
-    if(!b) await d.runAsync('INSERT INTO businesses(name) VALUES(?)','فروشگاه نمونه');
-    setDb(d); await refresh(d);
+    let b=await d.getFirstAsync('SELECT * FROM businesses ORDER BY id LIMIT 1');
+    if(!b) {
+      await d.runAsync('INSERT INTO businesses(name) VALUES(?)','فروشگاه نمونه');
+      b=await d.getFirstAsync('SELECT * FROM businesses ORDER BY id LIMIT 1');
+    }
+    setBusinessId(b.id); setBusiness(b.name); setDb(d); await refresh(d,b.id);
   })().catch(e=>Alert.alert('خطا در پایگاه داده',String(e))); },[]);
-  async function refresh(d=db) { if(!d)return; const rows=await d.getAllAsync('SELECT * FROM products WHERE business_id=1 ORDER BY id DESC'); setProducts(rows); }
-  async function addProduct(){
+  async function refresh(d=db,id=businessId) { if(!d)return; const rows=await d.getAllAsync('SELECT * FROM products WHERE business_id=? ORDER BY id DESC',id); setProducts(rows); }
+  async function saveBusiness(){ if(!db || !business.trim()) return Alert.alert('نامعتبر','نام فروشگاه را وارد کنید.'); await db.runAsync('UPDATE businesses SET name=? WHERE id=?',business.trim(),businessId); setBusiness(business.trim()); Alert.alert('ذخیره شد','نام فروشگاه ذخیره شد.'); }\n  async function addProduct(){
     if(!name.trim()) return Alert.alert('اطلاعات ناقص','نام کالا را وارد کنید.');
-    const d=db; await d.runAsync('INSERT INTO products(business_id,name,barcode,qty,buy,sell) VALUES(1,?,?,?,?,?)',name.trim(),barcode.trim(),Number(qty)||0,Number(buy)||0,Number(sell)||0);
+    const d=db; await d.runAsync('INSERT INTO products(business_id,name,barcode,qty,buy,sell) VALUES(?,?,?,?,?,?)',businessId,name.trim(),barcode.trim(),Math.max(0,Number(qty)||0),Math.max(0,Number(buy)||0),Math.max(0,Number(sell)||0));
     setName('');setBarcode('');setQty('0');setBuy('0');setSell('0');await refresh(d);setTab('کالاها');
   }
   async function movement(){
     if(!moveProduct || !(Number(moveQty)>0)) return Alert.alert('ورودی نامعتبر','کالا و تعداد معتبر انتخاب کنید.');
+    const current=await db.getFirstAsync('SELECT * FROM products WHERE id=? AND business_id=?',moveProduct.id,businessId);
+    if(!current) return Alert.alert('کالا پیدا نشد','فهرست کالا را تازه‌سازی کنید.');
     const delta=moveType==='in'?Number(moveQty):-Number(moveQty);
-    if(moveProduct.qty+delta<0) return Alert.alert('موجودی ناکافی','موجودی کالا برای خروج کافی نیست.');
-    await db.runAsync('UPDATE products SET qty=qty+? WHERE id=?',delta,moveProduct.id);
-    await db.runAsync('INSERT INTO movements(business_id,product_id,type,qty) VALUES(1,?,?,?)',moveProduct.id,moveType,Number(moveQty));
+    if(Number(current.qty)+delta<0) return Alert.alert('موجودی ناکافی','موجودی فعلی کالا برای خروج کافی نیست.');
+    await db.runAsync('UPDATE products SET qty=qty+? WHERE id=? AND business_id=?',delta,moveProduct.id,businessId);
+    await db.runAsync('INSERT INTO movements(business_id,product_id,type,qty) VALUES(?,?,?,?)',businessId,moveProduct.id,moveType,Number(moveQty));
     setMoveProduct(null);setMoveQty('1');await refresh();
     Alert.alert('ثبت شد',moveType==='in'?'ورود کالا ثبت شد.':'خروج کالا ثبت شد.');
   }
@@ -110,7 +115,8 @@ export default function App() {
     <View style={{backgroundColor:theme.card,padding:14,borderRadius:12,borderWidth:1,borderColor:theme.line}}>
       <Text style={{textAlign:'right',color:theme.ink,fontWeight:'700'}}>کسب‌وکار فعال</Text>
       <TextInput value={business} onChangeText={setBusiness} style={{textAlign:'right',borderWidth:1,borderColor:theme.line,borderRadius:9,padding:10,marginTop:8,color:theme.ink}}/>
-      <Text style={{textAlign:'right',color:theme.muted,fontSize:11,marginTop:8}}>ساختار داده برای تفکیک کسب‌وکارها در نظر گرفته شده؛ مدیریت چندمستاجری و کاربران هنوز فعال نشده است.</Text>
+      <Btn title="ذخیره نام فروشگاه" onPress={saveBusiness}/>
+      <Text style={{textAlign:'right',color:theme.muted,fontSize:11,marginTop:8}}>ذخیره نام فروشگاه فعال است؛ جداسازی چندفروشگاهی و مدیریت کاربران هنوز تکمیل نشده است.</Text>
     </View>
     <View style={{marginTop:12}}><Btn title={dark?'فعال‌سازی پوسته روشن':'فعال‌سازی پوسته تیره'} onPress={()=>setDark(!dark)} secondary/></View>
     <Text style={{textAlign:'right',color:theme.muted,fontSize:11,marginTop:12}}>نسخه اولیه آزمایشی — اتصال سرور، همگام‌سازی ابری و ورود کاربران در این خروجی پیاده‌سازی نشده است.</Text>
